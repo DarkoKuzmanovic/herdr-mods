@@ -8,6 +8,16 @@ a version (see [AGENTS.md](AGENTS.md#releases)).
 
 ## [Unreleased]
 
+### Added
+
+- **md-open:** New mod. A key (e.g. `alt-o`) lists the markdown files named in the focused terminal,
+  newest first; Enter opens the picked one in `fresh` in a split to the right.
+
+### Changed
+
+- **install.sh:** Under WSL it says where the mods go and how to point them at a Windows herdr-app;
+  the README has the WSL steps (#2).
+
 ### Fixed
 
 - **sessions:** Typing while the first search was still running left *Searching…* up forever.

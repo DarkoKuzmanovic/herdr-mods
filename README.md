@@ -1,9 +1,9 @@
 # herdr-mods
 
-Five mods for the [Herdr desktop app](https://herdr.dev) (herdr-app) that put more of what you need
+Six mods for the [Herdr desktop app](https://herdr.dev) (herdr-app) that put more of what you need
 in front of you: which session each coding agent is running and what it's doing right now, what changed
-in each space, how its CI is doing, how busy the machine is, how much of your AI quota is left, and a
-search over every past session.
+in each space, how its CI is doing, how busy the machine is, how much of your AI quota is left, a
+search over every past session, and the markdown files an agent just wrote, one key away.
 
 ![herdr-app with the mods](docs/window.png)
 
@@ -14,6 +14,7 @@ search over every past session.
 | [**sysstat**](sysstat/RECIPE.md) | CPU with a one-minute sparkline, memory and AMD GPU in the status bar, for the machine of the space you're looking at. Click for `btop`. |
 | [**sessions**](sessions/RECIPE.md) | A search box over past Hermes, Pi and PiG sessions (title, folder, matching text); Enter resumes the picked one in a new tab. |
 | [**usage**](usage/RECIPE.md) | The busiest AI provider quota in the status bar (`codex 31%`, red from 90%), every provider and its reset time on hover. Reads JSON from a command you set ([Kuota](https://github.com/DarkoKuzmanovic/kuota)'s collector format). |
+| [**md-open**](md-open/RECIPE.md) | Lists the markdown files named in the focused terminal (plans, reports an agent just wrote), newest first; Enter opens the picked one in [`fresh`](https://github.com/sinelaw/fresh) in a split to the right. |
 
 <p>
   <img src="agents-ids/preview.png" alt="Agents list with terminal addresses, session IDs and recent sessions to resume" height="260">
@@ -37,12 +38,18 @@ herdr-app do layout.switch '{"name":"main-plus"}'
 `git pull`; it updates in place, adds each hook once, and moves anything of yours that's in the way to
 `~/.cache/herdr-mods/backup-<time>/` instead of overwriting it.
 
+herdr-app on Windows with the agents in WSL: run `install.sh` in WSL (the hooks belong there) and point
+it at the Windows app's folder, which it can't find by itself:
+`HERDR_APP_CONFIG=/mnt/c/Users/<you>/.config/herdr-app ./install.sh`. Then check the mods from Windows
+with `herdr-app check`; the installer only checks with a `herdr-app` on WSL's PATH.
+
 Prefer your own layout? Clone it and set `content.mod` of the `spaces` and `agents` blocks to
 `spaces-plus` and `agents-ids`; add a `sysstat` block where you want the bar (it docks at the bottom by
 itself the first time Herdr sees it).
 
 `sessions` opens as a dialog; bind a key to it in `~/.config/herdr-app/keys.json` (the installer
-doesn't touch your keys): `"ctrl-shift-s": "mod.open:sessions"`.
+doesn't touch your keys): `"ctrl-shift-s": "mod.open:sessions"`. `md-open` the same way, e.g.
+`"alt-o": "mod.open:md-open"`.
 
 `usage` shows nothing until you give it a command in its layout block's props:
 
@@ -100,7 +107,7 @@ To remove a hook, delete its line or file from the places above.
 
 ```sh
 ./install.sh --watch    # copy mods into herdr-app, then re-copy on every save
-for m in agents-ids spaces-plus sysstat sessions usage; do node $m/mods/$m/test_logic.mjs && herdr-app check $m/mods/$m; done
+for m in agents-ids spaces-plus sysstat sessions usage md-open; do node $m/mods/$m/test_logic.mjs && herdr-app check $m/mods/$m; done
 python3 -I tests/test_label.py && python3 -I tests/test_hermes_plugin.py && python3 -I tests/test_sessions_search.py && node tests/test_pi.mjs
 scripts/demo.sh start   # screenshots from a demo window with its own herdr-core; then `shot`, `stop`
 ```

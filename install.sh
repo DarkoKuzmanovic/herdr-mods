@@ -46,7 +46,7 @@ link() {
 # changes, and an edit behind a symlink never reaches that folder. A marker file tells our copies apart.
 copy_mods() {
   local m dst
-  for m in agents-ids spaces-plus sysstat sessions usage; do
+  for m in agents-ids spaces-plus sysstat sessions usage md-open; do
     dst="$APP/mods/$m"
     if [ -L "$dst" ]; then rm "$dst"; elif [ -e "$dst" ] && [ ! -e "$dst/.herdr-mods" ]; then aside "$dst"; fi
     mkdir -p "$dst"
@@ -81,11 +81,15 @@ print(f"  added SessionStart hook to {path}")
 PY
 }
 
+# WSL with a Windows herdr-app: the mods must go to the Windows app's folder, which only the person knows.
+if [ -z "${HERDR_APP_CONFIG:-}" ] && grep -qi microsoft /proc/sys/kernel/osrelease 2>/dev/null; then
+  echo "WSL: mods go to $APP. For a Windows herdr-app, set HERDR_APP_CONFIG=/mnt/c/Users/<you>/.config/herdr-app (see README)." >&2
+fi
 [ -d "$APP" ] || { echo "No herdr-app config at $APP (start herdr-app once, or set HERDR_APP_CONFIG)" >&2; exit 1; }
 
 echo "Mods -> $APP/mods"
 copy_mods
-command -v herdr-app >/dev/null && for m in agents-ids spaces-plus sysstat sessions usage; do herdr-app check "$APP/mods/$m" | tail -1; done
+command -v herdr-app >/dev/null && for m in agents-ids spaces-plus sysstat sessions usage md-open; do herdr-app check "$APP/mods/$m" | tail -1; done
 if [ ! -e "$APP/layouts/main-plus.json" ]; then
   mkdir -p "$APP/layouts" && cp "$REPO/layout/main-plus.json" "$APP/layouts/"
   echo "  layout main-plus added: herdr-app do layout.switch '{\"name\":\"main-plus\"}'"
