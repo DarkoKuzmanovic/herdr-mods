@@ -8,8 +8,8 @@
 
 import { View, div, image, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { agents, terminals, panes, focused, spaces, run, theme, shared, setShared, setAgentOrder, openOverlay, closeOverlay, props, window, layout, exec } from "herdr";
-import { closeFacts, sameTerminal, doingLine, hideSession, machineOf, projectOf, recentSessions, rememberSessions, resumeSpace, shortSid } from "./extras.mjs";
+import { agents, terminals, panes, focused, spaces, run, theme, shared, setShared, setAgentOrder, openOverlay, closeOverlay, props, window, layout, exec, notify, playSound } from "herdr";
+import { closeFacts, sameTerminal, doingLine, hideSession, machineOf, projectOf, recentSessions, rememberSessions, resumeSpace, shortSid, stalls } from "./extras.mjs";
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -123,6 +123,23 @@ export default class Agents extends View {
     const listed = new Set(list.map((a) => a.address));
     for (const [k, c] of Object.entries(this.changed)) if (!listed.has(k) && now - c.at > 30 * 86400000) delete this.changed[k];
     localStorage.setItem("changed", JSON.stringify(this.changed));
+  }
+
+  // agents-ids: one notification per stall, with the attention sound; clicking it focuses the agent.
+  alertStalls(list, all, now) {
+    if (!list.length) return; // empty right after a start; forgetting the alerted stalls would repeat them
+    const labels = new Map(all.map((k) => [k.address, k.labels ?? {}]));
+    const found = stalls(list, (addr) => labels.get(addr) ?? {}, this.changed, now);
+    // Stalls already alerted, read each time: a restart or a second copy of the mod doesn't repeat them.
+    const before = localStorage.getItem("alerted") ?? "[]";
+    const alerted = new Set(JSON.parse(before));
+    for (const s of found.filter((s) => !alerted.has(s.key))) {
+      const a = list.find((x) => x.address === s.address);
+      notify({ title: `${a.program?.name ?? "Agent"} in ${a.space_name} looks stuck`, body: s.text, level: "warning", action: { name: "agent.focus", args: { terminal: s.address } } });
+      playSound("blocked");
+    }
+    const keys = JSON.stringify(found.map((s) => s.key));
+    if (keys !== before) localStorage.setItem("alerted", keys);
   }
 
   // Keep offline pins until their terminal returns, and keep each pending until
@@ -364,6 +381,7 @@ export default class Agents extends View {
     const shown = focused()?.agent;
     const now = Date.now();
     this.track(list, now);
+    this.alertStalls(list, all, now);
     this.hold(list);
     const byPriority = sort.id === "priority";
     const urgency = new Map(list.map((a) => [a.address, Math.max(this.rank(a), ...this.tree(all, a.address).map((s) => RANK[kidStatus(s.t, this.listed)] ?? 0))]));

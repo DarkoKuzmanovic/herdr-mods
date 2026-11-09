@@ -1,6 +1,6 @@
 // Self-check for agents-ids: node mods/agents-ids/test_logic.mjs
 import assert from "node:assert/strict";
-import { closeFacts, sameTerminal, doingLine, hideSession, projectOf, recentSessions, rememberSessions, resumeArgv, resumeSpace, shortSid } from "./extras.mjs";
+import { closeFacts, sameTerminal, doingLine, stalls, hideSession, projectOf, recentSessions, rememberSessions, resumeArgv, resumeSpace, shortSid } from "./extras.mjs";
 
 const identity = { address: "t1", state: "live", created_ms: 7, labels: { "agent.session": "one" } };
 assert.equal(sameTerminal(identity, identity), true);
@@ -18,6 +18,12 @@ const doing = { "agent.doing": "running tests", "agent.doing.since": "1000" };
 assert.deepEqual(doingLine(doing, "working", 1000 * 1000 + 42 * 60000), { text: "running tests · 42m", stale: true, tip: "no change for 42m" });
 assert.equal(doingLine(doing, "idle", 1000 * 1000 + 42 * 60000).stale, false);
 assert.equal(doingLine({}, "working", 0), null);
+
+const at = 1000 * 1000 + 42 * 60000;
+const labelsOf = (addr) => (addr === "t1" ? doing : {});
+const stuck = stalls([{ address: "t1", status: "working" }, { address: "t2", status: "blocked" }, { address: "t3", status: "blocked" }, { address: "t4", status: "idle" }],
+  labelsOf, { t2: { s: "blocked", at: at - 6 * 60000 }, t3: { s: "blocked", at: at - 60000 } }, at);
+assert.deepEqual(stuck.map((x) => [x.key, x.text]), [["t1 working 1000", "running tests · 42m"], [`t2 blocked ${at - 6 * 60000}`, "blocked for 6m"]]);
 assert.deepEqual(doingLine({ "agent.doing": "thinking", "agent.doing.since": "bad" }, "working", 5000000), { text: "thinking", stale: false, tip: "" });
 
 assert.equal(shortSid("local-e257df53a91b0666d3c2470352eebf013ed731f57b3b98d1f7314aea1783db1d"), "e257df53");

@@ -17,7 +17,10 @@ except each row is 44px tall instead of 30px and has two lines:
    Without a session ID only the address shows. A remote agent shows its address without the machine
    (`t5c`, not `laptop/t5c`): the machine is already named on the right.
 3. When the agent sets `agent.doing`: what it is doing now and for how long (`running: git · 4m`), amber
-   once it has been on the same thing for over 30 minutes.
+   once it has been on the same thing for over 30 minutes. Then, or when the agent has been `blocked`
+   for over 5 minutes, post one Herdr notification (`notify()`, warning, with `playSound("blocked")`)
+   whose click runs `agent.focus` on it: once per stall (remembered in `localStorage`, also across
+   restarts), again only when the doing line or the state changes and stalls anew.
 
 An X on each agent row opens a check of what closing it would lose (still working, uncommitted changes,
 sub-agents) before it ends the terminal; it refuses if the terminal changed meanwhile.

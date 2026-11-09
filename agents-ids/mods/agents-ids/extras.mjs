@@ -22,6 +22,19 @@ export function doingLine(labels, status, now) {
   return { text: `${text} · ${age}`, stale, tip: stale ? `no change for ${age}` : "" };
 }
 
+// Agents stuck now: working on the same agent.doing for 30+ minutes (the amber line), or blocked for
+// 5+ minutes. `key` names one stall, so each stall alerts once; a new doing or state is a new stall.
+export function stalls(list, labelsOf, changed, now) {
+  const out = [];
+  for (const a of list) {
+    const doing = doingLine(labelsOf(a.address), a.status, now);
+    const since = changed[a.address]?.s === "blocked" ? changed[a.address].at : null;
+    if (doing?.stale) out.push({ key: `${a.address} working ${labelsOf(a.address)["agent.doing.since"]}`, address: a.address, text: doing.text });
+    else if (a.status === "blocked" && since && now - since > 5 * 60000) out.push({ key: `${a.address} blocked ${since}`, address: a.address, text: `blocked for ${Math.floor((now - since) / 60000)}m` });
+  }
+  return out;
+}
+
 export function sameTerminal(before, after) {
   return Boolean(before && after && (typeof before.created_ms === "number" || before.labels?.["agent.session"]) && after.state === "live" && before.address === after.address &&
     before.created_ms === after.created_ms && before.labels?.["agent.session"] === after.labels?.["agent.session"]);

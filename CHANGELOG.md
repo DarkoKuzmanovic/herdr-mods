@@ -13,6 +13,10 @@ a version (see [AGENTS.md](AGENTS.md#releases)).
 - **md-open:** New mod. A key (e.g. `alt-o`) lists the markdown files named in the focused terminal,
   newest first; Enter opens the picked one in `fresh` in a split to the right.
 
+- **agents-ids:** A notification with a sound when an agent looks stuck: working on the same thing
+  for over 30 minutes, or blocked for over 5. Once per stall; clicking it focuses the agent. Shows
+  only while herdr-app is open.
+
 ### Changed
 
 - **install.sh:** Under WSL it says where the mods go and how to point them at a Windows herdr-app;
