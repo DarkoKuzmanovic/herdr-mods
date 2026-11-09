@@ -47,9 +47,11 @@ export default class Sessions extends View {
             return { rows: parseRows(result.stdout).map(row => ({ ...row, machine })), error: false };
           } catch { return { rows: [], error: true }; }
         }));
-        if (seq !== this.seq) return;
-        this.rows = results.flatMap(r => r.rows).sort((a, b) => b.timestamp - a.timestamp).slice(0, 50);
-        this.error = results.some(r => r.error) ? 'Some machines could not be searched.' : '';
+        // A stale result is dropped but must still reach `running = false` below, or search stalls.
+        if (seq === this.seq) {
+          this.rows = results.flatMap(r => r.rows).sort((a, b) => b.timestamp - a.timestamp).slice(0, 50);
+          this.error = results.some(r => r.error) ? 'Some machines could not be searched.' : '';
+        }
       } catch { if (seq === this.seq) this.error = 'Could not load the session search helper.'; }
       this.running = false;
       if (this.pending) { this.pending = false; return this.search(cx, this.seq); }

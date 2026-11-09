@@ -8,6 +8,10 @@ a version (see [AGENTS.md](AGENTS.md#releases)).
 
 ## [Unreleased]
 
+### Fixed
+
+- **sessions:** Typing while the first search was still running left *Searching…* up forever.
+
 ## [0.5.0] - 2026-11-08
 
 ### Added
