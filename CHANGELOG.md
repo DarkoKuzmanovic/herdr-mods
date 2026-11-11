@@ -8,6 +8,16 @@ a version (see [AGENTS.md](AGENTS.md#releases)).
 
 ## [Unreleased]
 
+### Added
+
+- **agents-ids:** Recent sessions tooltips start with the session's name from Hermes, Pi, PiG, Codex,
+  OpenCode or Claude Code (read from the agent's own history on that machine; none shown if it has no name).
+
+### Changed
+
+- **agents-ids:** Priority view lists Needs you, Working, Idle, then Done (Done was second).
+- **spaces-plus:** Space avatars are outlined in the space's color instead of a filled bright tile.
+
 ## [0.6.0] - 2026-11-09
 
 ### Added

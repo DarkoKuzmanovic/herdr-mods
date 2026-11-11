@@ -605,7 +605,8 @@ export default class Spaces extends View {
           .gap(9)
           .items_center()
           .when(Boolean(tree), el => el.pl(22).child(svg("mods/workspace-chrome/branch.svg").size(13).text_color(t.dim)))
-          .when(!tree, el => el.child(h_flex().size(18).flex_none().rounded(5).bg(fill).items_center().justify_center().text_size(10.5).font_bold().text_color("#ffffff").child([...name][0]?.toUpperCase() ?? "?")))
+          // spaces-plus: outlined avatar in the space's color, so it sits in the theme instead of a bright tile.
+          .when(!tree, el => el.child(h_flex().size(18).flex_none().rounded(5).border_1().border_color(fill).items_center().justify_center().text_size(10.5).font_bold().text_color(fill).child([...name][0]?.toUpperCase() ?? "?")))
           .child(v_flex().flex_1().min_w(0).gap(1)
             .child(h_flex().min_w(0).gap(5).items_center()
               .child(div().flex_shrink(0).max_w(150).truncate().text_color(t.foreground).child(name))

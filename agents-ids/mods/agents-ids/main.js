@@ -8,7 +8,7 @@
 
 import { View, div, image, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { agents, terminals, panes, focused, spaces, run, theme, shared, setShared, setAgentOrder, openOverlay, closeOverlay, props, window, layout, exec, notify, playSound } from "herdr";
+import { agents, terminals, panes, focused, spaces, run, theme, shared, setShared, setAgentOrder, openOverlay, closeOverlay, props, window, layout, exec, notify, playSound, appHome, readTextFile } from "herdr";
 import { closeFacts, sameTerminal, doingLine, hideSession, machineOf, projectOf, recentSessions, rememberSessions, resumeSpace, shortSid, stalls } from "./extras.mjs";
 
 function find(node, id) {
@@ -98,6 +98,7 @@ export default class Agents extends View {
     // agents-ids: each folder's git common dir (null: not a repo, or not asked yet), for "Grouped by project".
     // shortcut: never re-asked, so a folder that becomes a repo later groups by folder until restart.
     this.repos = new Map();
+    this.names = new Map(); // agents-ids: sid -> session name from the agent's own history, "" when it has none
     // Each agent's last state and when it changed (ms), kept across restarts.
     this.changed = JSON.parse(localStorage.getItem("changed") ?? "{}");
     this.pendingPins = JSON.parse(localStorage.getItem("pins") ?? "[]");
@@ -220,6 +221,25 @@ export default class Agents extends View {
     exec("test", ["-d", r.cwd], { on: machineOf(r.address) }).then((x) => open(x.code === 0 ? r.cwd : undefined), () => open(undefined));
   }
 
+  // agents-ids: names for Recent sessions, asked once per session on its own machine via names.py.
+  fetchNames(recent, cx) {
+    const ask = recent.filter((r) => !this.names.has(r.sid));
+    for (const r of ask) this.names.set(r.sid, "");
+    // One run per machine, each on its own: an unreachable machine leaves only its rows unnamed.
+    for (const on of new Set(ask.map((r) => machineOf(r.address)))) {
+      cx.spawn(async (cx) => {
+        try {
+          const script = await readTextFile(`${appHome()}/mods/agents-ids/names.py`);
+          const args = ask.filter((r) => machineOf(r.address) === on).map((r) => `${r.app}:${r.sid}`);
+          const res = await exec("python3", ["-c", script, ...args], { on });
+          if (res.code !== 0) return;
+          for (const [sid, name] of Object.entries(JSON.parse(res.stdout))) if (typeof name === "string") this.names.set(sid, name);
+          cx.notify();
+        } catch {}
+      });
+    }
+  }
+
   recentRow(t, r) {
     return h_flex()
       .id(`recent-${r.sid}`)
@@ -231,7 +251,7 @@ export default class Agents extends View {
       .items_center()
       .text_size(12)
       .hover((s) => s.bg(t.hover))
-      .tooltip(`${r.argv.join(" ")}\nin a new tab${r.cwd ? `, ${r.cwd}` : ""}\nsession ${r.sid}, last in ${r.address}\nctrl-click: copy session id`)
+      .tooltip(`${this.names.get(r.sid) ? `${this.names.get(r.sid)}\n` : ""}${r.argv.join(" ")}\nin a new tab${r.cwd ? `, ${r.cwd}` : ""}\nsession ${r.sid}, last in ${r.address}\nctrl-click: copy session id`)
       .on_click((e, cx) => e?.modifiers?.control && cx.write_to_clipboard(r.sid))
       .child(div().flex_none().text_color(t.muted).child(r.app))
       // The folder says which work it was; a closed terminal's address may belong to another by now.
@@ -409,7 +429,9 @@ export default class Agents extends View {
         return p.name.localeCompare(q.name) || p.key.localeCompare(q.key);
       });
     }
-    if (byPriority) list = [...list].sort((x, y) => rankOf(y) - rankOf(x) || this.since(y) - this.since(x) || y.seq - x.seq);
+    // agents-ids: Priority sections read Needs you, Working, Idle, Done (rank -> position).
+    const place = (a) => ({ 4: 4, 2: 3, 1: 2, 3: 1 })[rankOf(a) || RANK.idle];
+    if (byPriority) list = [...list].sort((x, y) => place(y) - place(x) || this.since(y) - this.since(x) || y.seq - x.seq);
     const pinned = list.filter((a) => a.pinned);
     const rest = list.filter((a) => !a.pinned);
     list = [...pinned, ...rest];
@@ -605,6 +627,7 @@ export default class Agents extends View {
     // agents-ids: 5 recent sessions, all remembered ones after "Show more".
     const recent = collapsed ? [] : recentSessions(all, this.listed, store, Infinity);
     const recentShown = this.recentAll ? recent : recent.slice(0, 5);
+    this.fetchNames(recentShown, cx);
     const toggle = () => h_flex().id("recent-more").px(8).h(24).flex_none().items_center().text_size(11).text_color(t.dim)
       .cursor_pointer().hover((s) => s.text_color(t.foreground))
       .on_click((_e, cx) => { this.recentAll = !this.recentAll; cx.notify(); })
