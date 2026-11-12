@@ -9,6 +9,7 @@ interactive platforms only, never for subagents. Does nothing outside herdr-app.
 
 from __future__ import annotations
 
+import json
 import os
 import queue
 import subprocess
@@ -61,12 +62,38 @@ def _env() -> dict:
     return env
 
 
-def _label(**kwargs) -> None:
+def _scan(env) -> dict:
+    """`--resume`/`-r` argument -> terminal, for each local Hermes terminal."""
+    found = {}
+    def hc(*args):
+        return json.loads(subprocess.run(["hc", *args, "--json"], env=env, capture_output=True, timeout=2).stdout)
+    try:
+        for t in hc("ls").get("terminals", []):
+            if t.get("agent") != "hermes" or "/" in t.get("address", ""):  # "/": another machine's terminal
+                continue
+            argv = (hc("get", t["address"]).get("foreground") or {}).get("argv") or []
+            found.update({val: t["address"] for flag, val in zip(argv, argv[1:]) if flag in ("--resume", "-r")})
+    except Exception:
+        pass  # no herdr-app here, or it didn't answer: keep the client's own terminal
+    return found
+
+
+def _resumed_in(sid, env):
+    """The terminal running `hermes --resume <sid or its prefix>`. A shared gateway keeps a session's client
+    env from when it was created, so a session resumed in another terminal still names the old one.
+    shortcut: `/resume` inside an open TUI and `--resume latest|<title>` leave no id to match; those keep the old terminal."""
+    hits = [term for arg, term in _scan(env).items() if len(arg) >= 8 and sid.startswith(arg)]
+    return hits[0] if hits else None
+
+
+def _label(opened=False, **kwargs) -> None:
     if kwargs.get("platform") not in _INTERACTIVE or kwargs.get("parent_session_id"):
         return
     sid = str(kwargs.get("session_id") or "")
     env = _env()
-    term = (env.get("HC_TERMINAL_ID") or "").strip()
+    term = sid and _resumed_in(sid, env)
+    if not term and not opened:  # an open has no client env bound: HC_TERMINAL_ID would be the gateway's own
+        term = (env.get("HC_TERMINAL_ID") or "").strip()
     if not sid or not term:
         return
     with _lock:
@@ -118,6 +145,12 @@ def _tool(**kwargs):
 
 def register(ctx):
     ctx.register_hook("pre_llm_call", _pre)
+    try:  # Hermes 0.23.1+: label a resumed tab when it opens, not at its first message
+        from hermes_cli.plugins import VALID_HOOKS
+    except Exception:
+        VALID_HOOKS = ()
+    if "on_session_open" in VALID_HOOKS:
+        ctx.register_hook("on_session_open", lambda **kw: _label(opened=True, **kw))
     ctx.register_hook("pre_tool_call", _tool)
     ctx.register_hook("on_human_input_request", lambda **kw: _doing("waiting for you", **kw))
     ctx.register_hook("on_human_input_resolved", lambda **kw: _doing("thinking", **kw))

@@ -11,6 +11,7 @@ os.environ.pop("HC_TERMINAL_SOCKET", None)
 calls = []
 m._send = lambda cmd, env: calls.append((cmd, env.get("HC_TERMINAL_SOCKET")))
 m.time.time = lambda: 1234
+m._scan = lambda env: {}  # no terminal runs `hermes --resume`
 hooks = {}
 m.register(type("Ctx", (), {"register_hook": lambda self, name, fn: hooks.setdefault(name, fn)})())
 label = hooks["pre_llm_call"]
@@ -50,5 +51,27 @@ calls.clear()
 os.environ["HC_TERMINAL_ID"] = "t1"
 mod.bound_client_env = lambda: {"PATH": "/usr/bin"}
 label(platform="local", session_id="s4")
+assert calls == [], calls
+# A session resumed in another terminal labels that one, not the terminal its client env names.
+calls.clear()
+mod.bound_client_env = lambda: {"HC_TERMINAL_ID": "t4"}
+m._scan = lambda env: {"local-abcd1234": "t7", "local-ffff0000": "t8"}
+label(platform="local", session_id="local-abcd1234ef")
+assert calls[0][0] == ["hc", "label", "t7", "agent.session=local-abcd1234ef", "agent.app=hermes"], calls
+
+# Hermes with on_session_open: a resumed tab is labelled when it opens, before any message.
+sys.modules["hermes_cli"] = type(sys)("hermes_cli")
+sys.modules["hermes_cli.plugins"] = plugins = type(sys)("hermes_cli.plugins")
+plugins.VALID_HOOKS = {"pre_llm_call", "on_session_open"}
+hooks.clear()
+m.register(type("Ctx", (), {"register_hook": lambda self, name, fn: hooks.setdefault(name, fn)})())
+calls.clear()
+mod.bound_client_env = lambda: None  # an open carries no client env: only the resumed terminal counts
+m._scan = lambda env: {"local-9999aaaa": "t5"}
+hooks["on_session_open"](session_id="local-9999aaaabb", platform="tui", reason="resume")
+assert calls == [(["hc", "label", "t5", "agent.session=local-9999aaaabb", "agent.app=hermes"], None)], calls
+calls.clear()
+m._scan = lambda env: {}  # a new session: the gateway's own HC_TERMINAL_ID (t1 here) is never labelled
+hooks["on_session_open"](session_id="local-new00000", platform="tui", reason="create")
 assert calls == [], calls
 print("ok")

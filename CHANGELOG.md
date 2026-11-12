@@ -8,6 +8,15 @@ a version (see [AGENTS.md](AGENTS.md#releases)).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Hermes integration:** A session resumed in a different terminal (`hermes --resume <id>`, or Resume in
+  agents-ids or sessions) now labels that terminal. Before, the labels went to the terminal the session was
+  first created in, because Hermes's shared gateway keeps the environment from that first start. `/resume`
+  inside an already open tab is still not followed.
+- **Hermes integration:** On Hermes 0.23.1 and newer, a resumed tab shows its session ID as soon as it opens,
+  not only after its first message.
+
 ## [0.8.0] - 2026-11-12
 
 ### Added
