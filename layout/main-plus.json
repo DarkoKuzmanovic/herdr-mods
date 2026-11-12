@@ -186,6 +186,16 @@
               "size": {
                 "px": 420
               }
+            },
+            {
+              "id": "copy-on-select",
+              "type": "block",
+              "content": {
+                "mod": "copy-on-select"
+              },
+              "size": {
+                "px": 0
+              }
             }
           ],
           "size": {

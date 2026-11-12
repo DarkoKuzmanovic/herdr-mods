@@ -8,6 +8,12 @@ a version (see [AGENTS.md](AGENTS.md#releases)).
 
 ## [Unreleased]
 
+### Added
+
+- **copy-on-select:** New mod. Shift-drag a selection in any terminal and it is copied when the
+  pointer settles, with one *Copied* toast. Plain drags copy nothing. In the main-plus layout as a 0px
+  block in the status row.
+
 ## [0.7.0] - 2026-11-11
 
 ### Added

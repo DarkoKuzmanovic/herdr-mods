@@ -15,6 +15,7 @@ search over every past session, and the markdown files an agent just wrote, one 
 | [**sessions**](sessions/RECIPE.md) | A search box over past Hermes, Pi and PiG sessions (title, folder, matching text); Enter resumes the picked one in a new tab. |
 | [**usage**](usage/RECIPE.md) | The busiest AI provider quota in the status bar (`codex 31%`, red from 90%), every provider and its reset time on hover. Reads JSON from a command you set ([Kuota](https://github.com/DarkoKuzmanovic/kuota)'s collector format). |
 | [**md-open**](md-open/RECIPE.md) | Lists the markdown files named in the focused terminal (plans, reports an agent just wrote), newest first; Enter opens the picked one in [`fresh`](https://github.com/sinelaw/fresh) in a split to the right. |
+| [**copy-on-select**](copy-on-select/RECIPE.md) | Shift-drag a selection in any terminal and it's copied once the pointer settles, with a *Copied* toast. Plain drags copy nothing. Linux-friendly: no OS helper. |
 
 <p>
   <img src="agents-ids/preview.png" alt="Agents list with terminal addresses, session IDs and recent sessions to resume" height="260">
@@ -107,7 +108,7 @@ To remove a hook, delete its line or file from the places above.
 
 ```sh
 ./install.sh --watch    # copy mods into herdr-app, then re-copy on every save
-for m in agents-ids spaces-plus sysstat sessions usage md-open; do node $m/mods/$m/test_logic.mjs && herdr-app check $m/mods/$m; done
+for m in agents-ids spaces-plus sysstat sessions usage md-open copy-on-select; do node $m/mods/$m/test_logic.mjs && herdr-app check $m/mods/$m; done
 python3 -I tests/test_label.py && python3 -I tests/test_hermes_plugin.py && python3 -I tests/test_sessions_search.py && node tests/test_pi.mjs
 scripts/demo.sh start   # screenshots from a demo window with its own herdr-core; then `shot`, `stop`
 ```
