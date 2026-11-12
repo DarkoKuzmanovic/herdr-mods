@@ -8,6 +8,8 @@ a version (see [AGENTS.md](AGENTS.md#releases)).
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-12
+
 ### Added
 
 - **copy-on-select:** New mod. Shift-drag a selection in any terminal and it is copied when the
@@ -199,7 +201,8 @@ First public release.
   OpenCode (TUI plugin), all through `integrations/bin/agent-session-label`.
 - `install.sh` (`--mods-only`, `--watch`) and the `main-plus` layout.
 
-[Unreleased]: https://github.com/DarkoKuzmanovic/herdr-mods/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/DarkoKuzmanovic/herdr-mods/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/DarkoKuzmanovic/herdr-mods/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/DarkoKuzmanovic/herdr-mods/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/DarkoKuzmanovic/herdr-mods/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/DarkoKuzmanovic/herdr-mods/compare/v0.4.2...v0.5.0
