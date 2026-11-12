@@ -52,8 +52,51 @@ folder if that still exists. It never types into the old terminal, which may hol
 `hermes --resume`. Ctrl-clicking the row copies the session ID; the X beside Resume hides the session
 until it runs again.
 
+**Save & close sessions**, the command `agents-ids.unload` (bind `ctrl-shift-u`; pressing it again closes
+it) or a `⏏` (12px, `dim`) left of the sort icon in the header, tooltip "Save & close sessions (Ctrl+Shift+U)":
+a dialog (680x480, `popover`) of the same mod (`props: { unload: true }`; its overlay id kept in
+`shared("agents-ids.unload")` so the key closes it, cleared in `close()`). One row per terminal whose agent is
+Hermes, Claude Code, Codex, Pi, PiG or OpenCode, on every machine: `✓` (`done` color) or `⚠` (`blocked`),
+`space / tab` (`machine: ` in front for a remote one), the program (`muted`), the folder's last part (`dim`),
+the state at the right, and under a `⚠` the cause in `blocked`: `working: <agent.doing or mid-reply>`,
+`waiting for your answer` (blocked), `runs: make ci-wait PR=1118 +1`, `same tab: t5 runs: npm run dev`,
+`1 sub-agent running`, `checking processes…` (until asked), `couldn't check processes`. A click focuses the
+agent (`agent.focus`). Buttons: **Save & close N safe** (primary, Enter), **Save & close all** (when a row is
+`⚠`, first a "Close busy tabs too?" step listing them, Back or Esc returns), **Save only**. Esc closes. Each
+writes every row to the snapshot, then runs `tab.close {id, confirmed: true}` on the tabs of `✓` rows (or of
+all rows), and posts a toast "Saved 6 sessions · Closed 2 tabs · 4 still open". Nothing closes when the
+write fails.
+
+The process check is `procs.py` (python3 stdlib, read-only `/proc`), run once per machine with
+`exec("python3", ["-c", script, ...pids], { on })` like `names.py`, given each terminal's shell `pid` (from
+`terminals()`) for the agents and the other terminals in their tabs. Per shell it reports `fg` (the
+foreground job leader, `tpgid`, unless the shell itself) and `runs`: processes of the terminal except the
+shell, the agent and its helpers. The terminal's processes are the shell's descendants plus any process with
+the shell's `HC_TERMINAL_ID` and `HC_TERMINAL_SOCKET` (Hermes runs its tool jobs under a separate backend
+process), but not one whose topmost such ancestor was handed to init/systemd (a browser opened from the
+agent outlives the tab). Helpers: whatever started within 60 s of the agent (TUI runtime, MCP servers) and
+their children, and language servers. Each busy subtree shows its first non-shell program, shortened to 60
+characters (an inline `python3 -c` script shows as `…`).
+
+The snapshot is JSON at `~/.local/state/herdr-mods/session-snapshot.json` on this computer (with another
+`$HERDR_APP_HOME`, such as the demo window's, `<app home>/data/herdr-mods/` instead): `saved_at` (ISO) and
+per row `machine`, `space`, `space_name`, `tab_name` (null for an automatic number), `folder`, `app`,
+`session`, `address`, `argv` (`resumeArgv`) and `resumable`. The session is the `agent.session` label, else
+the id after the resume flag in the agent's own argv (an agent reopened by Reopen may label itself only
+after its first turn).
+
+**Reopen**, the command `agents-ids.load` (bind `ctrl-shift-alt-u`) or a bar at the top of the list,
+"Reopen N sessions (saved HH:MM)" (`accent` on a 12% tint, an X that hides it until the next save), shown
+while the snapshot has resumable sessions not running now. For each row: skip it when its session runs (a
+live agent's label, or the id in a terminal's foreground argv); fail it when its machine isn't ready in
+`machines()`; else `tab.new {space, name, folder, argv}` in its space (by id, else by name, same machine;
+folder only if `test -d` passes there), or `space.new {name, folder, argv, machine, tab}` when that space is
+gone. Then one toast: "Reopened 4 · skipped 1 (already open) · failed 1 (laptop offline)". Reopening twice
+opens nothing new.
+
 **Built from:** a copy of the shipped `agents` mod (herdr-app 0.1.12). Its own logic is in
-`extras.mjs` (pure: `shortSid`, `resumeArgv`, `rememberSessions`, `recentSessions`). In `main.js`: a map
+`extras.mjs` (pure: `shortSid`, `resumeArgv`, `rememberSessions`, `recentSessions`, `unloadRows`,
+`snapshotOf`, `runningSids`, `reopenable`, `reopenSpace`, `reopenSummary`). In `main.js`: a map
 from terminal address to `labels["agent.session"]` from `terminals()`; the second line in the row
 render; `recentRow()` and `resume()` (`resumeSpace`, `exec("test", ["-d", cwd], { on })`, then
 `run("tab.new", { space, folder, argv })`);
@@ -84,3 +127,7 @@ call the same script from its session-start hook.
   second; Ctrl-clicking it puts `test-1234567890` on the clipboard.
 - Quitting a labelled Claude Code moves it to Recent sessions; Resume there brings back the same
   conversation in a new tab of that space.
+- Save & close lists a plain idle agent with `✓`; `sleep 600` started inside its terminal a minute after the
+  agent turns it `⚠ runs: sleep 600`. Save only writes the file and closes nothing; Save & close N safe
+  closes only the `✓` tabs; Reopen brings them back in their spaces with their tab names, and a second
+  Reopen opens nothing.

@@ -13,6 +13,10 @@ a version (see [AGENTS.md](AGENTS.md#releases)).
 - **copy-on-select:** New mod. Shift-drag a selection in any terminal and it is copied when the
   pointer settles, with one *Copied* toast. Plain drags copy nothing. In the main-plus layout as a 0px
   block in the status row.
+- **agents-ids:** Save & close sessions (Ctrl+Shift+U, or ⏏ in the Agents header): lists every agent with ✓ or ⚠
+  (working, waiting for an answer, or running a job such as a build or a test run), saves them all to a
+  snapshot and closes the tabs that are safe to close. Reopen them later with Ctrl+Shift+Alt+U or the
+  "Reopen N sessions" bar: each comes back in its space with its tab name and folder.
 
 ## [0.7.0] - 2026-11-11
 

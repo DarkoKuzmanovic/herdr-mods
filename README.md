@@ -9,7 +9,7 @@ search over every past session, and the markdown files an agent just wrote, one 
 
 | Mod | What it adds |
 |---|---|
-| [**agents-ids**](agents-ids/RECIPE.md) | A second line under every agent: terminal address and short session ID (Ctrl-click to copy). *Grouped by project* in the sort menu puts agents of one git repo together, worktrees included. A third line with what the agent is doing now (`running: terminal npm · 4m`), amber when it has been working on the same thing for over 30 minutes; then, or after 5 minutes blocked, one notification with a sound, which focuses the agent when clicked. An X on each row checks what closing would lose (still working, uncommitted changes, sub-agents) before it ends the terminal. *Recent sessions* below, with **Resume** for agents that ended. Claude Code, Codex, Pi, PiG, OpenCode and Hermes, or any agent that sets one label. |
+| [**agents-ids**](agents-ids/RECIPE.md) | A second line under every agent: terminal address and short session ID (Ctrl-click to copy). *Grouped by project* in the sort menu puts agents of one git repo together, worktrees included. A third line with what the agent is doing now (`running: terminal npm · 4m`), amber when it has been working on the same thing for over 30 minutes; then, or after 5 minutes blocked, one notification with a sound, which focuses the agent when clicked. An X on each row checks what closing would lose (still working, uncommitted changes, sub-agents) before it ends the terminal. *Recent sessions* below, with **Resume** for agents that ended. **Save & close sessions** saves every agent's session and closes the tabs that are safe to close (not working, not waiting for an answer, no build or test running); **Reopen** brings them back in their spaces. Claude Code, Codex, Pi, PiG, OpenCode and Hermes, or any agent that sets one label. |
 | [**spaces-plus**](spaces-plus/RECIPE.md) | Git changes, tab count and agent status per space, the active space's tabs, the ports its programs listen on and its branch's pull request (click to open; red when a check failed, amber when CI has sat queued over 45 minutes), CPU and memory per machine, why a machine is unreachable and since when, recent spaces to reopen. |
 | [**sysstat**](sysstat/RECIPE.md) | CPU with a one-minute sparkline, memory and AMD GPU in the status bar, for the machine of the space you're looking at. Click for `btop`. |
 | [**sessions**](sessions/RECIPE.md) | A search box over past Hermes, Pi and PiG sessions (title, folder, matching text); Enter resumes the picked one in a new tab. |
@@ -50,7 +50,8 @@ itself the first time Herdr sees it).
 
 `sessions` opens as a dialog; bind a key to it in `~/.config/herdr-app/keys.json` (the installer
 doesn't touch your keys): `"ctrl-shift-s": "mod.open:sessions"`. `md-open` the same way, e.g.
-`"alt-o": "mod.open:md-open"`.
+`"alt-o": "mod.open:md-open"`. `agents-ids`' Save & close sessions and Reopen are key commands:
+`"ctrl-shift-u": "agents-ids.unload"`, `"ctrl-shift-alt-u": "agents-ids.load"`.
 
 `usage` shows nothing until you give it a command in its layout block's props:
 

@@ -58,13 +58,19 @@ const RESUME = {
   hermes: (id) => ["hermes", "--resume", id],
 };
 
+/** The known agent an app name means (`claude-code`, `/usr/bin/codex` -> `claude`, `codex`), or null. */
+export function agentKey(app) {
+  const key = (typeof app === "string" ? app : "").toLowerCase().replace(/^.*\//, "").replace(/-code$/, "");
+  // agents-ids: own keys only, so a label like `__proto__` can't reach Object.prototype.
+  return Object.hasOwn(RESUME, key) ? key : null;
+}
+
 /** The command that reopens a session, or null for an unknown agent or an id that isn't plain
  *  letters, digits, `-`, `_`, `.` (labels are written by any program, and Resume may type this
  *  into a shell). */
 export function resumeArgv(app, id) {
-  const key = (app ?? "").toLowerCase().replace(/^.*\//, "").replace(/-code$/, "");
-  // agents-ids: own keys only, so a label like `__proto__` can't reach Object.prototype.
-  return Object.hasOwn(RESUME, key) && /^[\w.-]{4,128}$/.test(id ?? "") ? RESUME[key](id) : null;
+  const key = agentKey(app);
+  return key && /^[\w.-]{4,128}$/.test(id ?? "") ? RESUME[key](id) : null;
 }
 
 const KEEP = 20;
@@ -145,4 +151,101 @@ export function recentSessions(all, agentAddresses, store, max = 5) {
     .sort((a, b) => b.seen - a.seen)
     .slice(0, max)
     .map((e) => ({ ...e, argv: resumeArgv(e.app, e.sid) }));
+}
+
+// agents-ids: "Save & close sessions" and "Reopen saved sessions".
+
+/** Where the snapshot lives: ~/.local/state/herdr-mods/ for the usual app folder, else inside the app
+ *  folder ($HERDR_APP_HOME), so a second window (the demo) never writes the person's own. */
+export const snapshotPath = (home, appHome) =>
+  appHome.replace(/\/+$/, "") === `${home.replace(/\/+$/, "")}/.config/herdr-app` ? `${home}/.local/state/herdr-mods/session-snapshot.json` : `${appHome}/data/herdr-mods/session-snapshot.json`;
+
+const oneLine = (s, n) => (typeof s === "string" ? s.replace(/\s+/g, " ").trim().slice(0, n) : "");
+
+/** Why closing a terminal now would lose something, or null. `p`: procs.py's {fg, runs} for it,
+ *  undefined while asked, null when it couldn't be checked. An agent's own foreground is the agent. */
+function busy(k, status, p, agent) {
+  if (status === "blocked") return "waiting for your answer";
+  if (status === "working") return `working: ${oneLine(k?.labels?.["agent.doing"], 40) || "mid-reply"}`;
+  if (p === undefined) return "checking processes…";
+  if (p === null) return "couldn't check processes";
+  const runs = [...(agent || !p.fg ? [] : [p.fg]), ...(p.runs ?? [])];
+  return runs.length ? `runs: ${oneLine(runs[0], 60)}${runs.length > 1 ? ` +${runs.length - 1}` : ""}` : null;
+}
+
+/** The session id a terminal's agent was started with (`hermes --resume <id>`, as Reopen starts it), or
+ *  null: an agent may label itself only after its first turn, and saving again must not lose it. */
+export function sessionFromArgv(app, argv) {
+  const key = agentKey(app);
+  if (!key || !Array.isArray(argv)) return null;
+  const flag = RESUME[key]("x")[1];
+  const i = argv.lastIndexOf(flag);
+  return i >= 0 && resumeArgv(key, argv[i + 1]) ? argv[i + 1] : null;
+}
+
+/** One row per terminal running a known agent: where, what, and `cause` (null: safe to close). A
+ *  row is safe only when everything its tab would end is: other terminals in the tab, sub-agents. */
+export function unloadRows(agentList, all, paneList, spaceList, procs) {
+  const byAddr = new Map(all.map((k) => [k.address, k]));
+  const tabs = new Map(spaceList.flatMap((s) => s.tabs.map((t) => [t.id, t])));
+  const rows = agentList.flatMap((a) => {
+    const k = byAddr.get(a.address);
+    const app = agentKey(k?.labels?.["agent.app"]) ?? agentKey(a.app) ?? agentKey(a.program?.key);
+    if (!k || !app) return [];
+    const tab = tabs.get(a.tab);
+    const label = k.labels?.["agent.session"];
+    const session = typeof label === "string" && label ? label : sessionFromArgv(app, k.foreground?.argv) ?? sessionFromArgv(app, k.argv);
+    return [{ address: a.address, pane: a.pane, machine: machineOf(a.address), space: a.space, space_name: a.space_name, tab: a.tab,
+      tab_label: tab?.name ?? a.tab_name, tab_name: tab?.named ? tab.name : null, folder: k.cwd ?? null, app, session,
+      argv: resumeArgv(app, session), status: a.status, cause: busy(k, a.status, procs.get(a.address), true) }];
+  });
+  const own = new Map(rows.map((r) => [r.address, r.cause]));
+  for (const r of rows) {
+    if (r.cause) continue;
+    const others = paneList.filter((p) => p.tab === r.tab && p.terminal && p.terminal !== r.address).map((p) => p.terminal);
+    const why = others.map((t) => [t, own.has(t) ? own.get(t) : busy(byAddr.get(t), null, procs.get(t), false)]).find(([, c]) => c);
+    const kids = all.filter((k) => k.parent === r.address && k.state === "live").length;
+    r.cause = why ? `same tab: ${why[0]} ${why[1]}` : kids ? `${kids} sub-agent${kids > 1 ? "s" : ""} running` : null;
+  }
+  return rows;
+}
+
+/** The snapshot file's content: every row, resumable or not. */
+export const snapshotOf = (rows, now) => ({
+  saved_at: new Date(now).toISOString(),
+  rows: rows.map((r) => ({ machine: r.machine, space: r.space, space_name: r.space_name, tab_name: r.tab_name, folder: r.folder,
+    app: r.app, session: r.session, address: r.address, argv: r.argv, resumable: Boolean(r.argv) })),
+});
+
+/** Session ids running now: a live agent's label, or the id its foreground (or, while an agent runs,
+ *  the terminal itself) was started with, since an agent may label itself only after its first turn. */
+export function runningSids(all, agentAddresses) {
+  const out = new Set();
+  for (const k of all) {
+    if (k.state !== "live") continue;
+    const live = running(k, agentAddresses);
+    if (live && k.labels?.["agent.session"]) out.add(k.labels["agent.session"]);
+    for (const a of [...(k.foreground?.argv ?? []), ...(live ? k.argv ?? [] : [])]) if (typeof a === "string") out.add(a);
+  }
+  return out;
+}
+
+/** Snapshot rows that Reopen would open: resumable and not running now. */
+export const reopenable = (snap, sids) => (snap?.rows ?? []).filter((r) => r.resumable && resumeArgv(r.app, r.session) && !sids.has(r.session));
+
+/** The space a saved row reopens in: its own (by id), else one of the same name, on its machine. */
+export function reopenSpace(spaceList, r) {
+  const same = spaceList.filter((s) => (s.machine ?? null) === (r.machine ?? null));
+  return (same.find((s) => s.id === r.space) ?? same.find((s) => s.name === r.space_name))?.id ?? null;
+}
+
+/** "Reopened 4 · skipped 1 (already open) · failed 1 (laptop offline)" from [{done|skip|fail: reason}]. */
+export function reopenSummary(results) {
+  const part = (word, kind) => {
+    const hits = results.filter((x) => kind in x);
+    if (!hits.length) return null;
+    const why = [...new Set(hits.map((x) => x[kind]).filter(Boolean))];
+    return `${word} ${hits.length}${why.length ? ` (${why.join(", ")})` : ""}`;
+  };
+  return [part("Reopened", "done"), part("skipped", "skip"), part("failed", "fail")].filter(Boolean).join(" · ") || "Nothing to reopen";
 }
