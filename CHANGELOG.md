@@ -8,6 +8,25 @@ a version (see [AGENTS.md](AGENTS.md#releases)).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-12
+
+### Added
+
+- **agents-ids:** A finished agent's third line is what it says comes next (its reply's `Next:` line). When
+  that line asks for you, the agent sorts with *Needs you* and shows *Your turn*.
+- **agents-ids:** *Waiting*: an agent whose background jobs will wake it (a CI watch, a build) reads
+  `waiting: gh · 4m` with a clock, in its own section after Working, instead of looking idle.
+- **agents-ids:** Herds. Agents started by a lead (`agent.lead`) nest under it in Priority view, with
+  `herd · 3 working · 1 needs you` on the lead and each worker's brief, which a click opens. In the other
+  views they stay in their space with a `↳ lead` chip. Closing a lead says its herd keeps running.
+- **agents-ids:** Send to several: pick agents with the pen icon, type once, send. An agent whose input
+  box holds unsent text, or can't be read (only Hermes's can, for now), is skipped and named.
+- **md-open:** also lists HTML and PDF files, and opens them in your browser or PDF viewer.
+- **Hermes integration:** reports Hermes's turn state to Herdr (working, done, blocked on an approval or a
+  question) and sets `agent.next`, `agent.needs` and `agent.waiting` for the features above. Install it
+  without cloning: `hermes plugins install DarkoKuzmanovic/herdr-mods/integrations/hermes/agent-session-label`.
+- **docs/labels.md:** every label the mods read, who sets it and what shows it. None is required.
+
 ## [0.8.1] - 2026-11-12
 
 ### Fixed
@@ -216,7 +235,8 @@ First public release.
   OpenCode (TUI plugin), all through `integrations/bin/agent-session-label`.
 - `install.sh` (`--mods-only`, `--watch`) and the `main-plus` layout.
 
-[Unreleased]: https://github.com/DarkoKuzmanovic/herdr-mods/compare/v0.8.1...HEAD
+[Unreleased]: https://github.com/DarkoKuzmanovic/herdr-mods/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/DarkoKuzmanovic/herdr-mods/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/DarkoKuzmanovic/herdr-mods/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/DarkoKuzmanovic/herdr-mods/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/DarkoKuzmanovic/herdr-mods/compare/v0.6.0...v0.7.0

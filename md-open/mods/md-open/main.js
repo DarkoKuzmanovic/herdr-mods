@@ -1,7 +1,7 @@
 import { View, div } from 'gpui-kit';
 import { v_flex, h_flex } from 'gpui-base';
 import { closeOverlay, exec, focused, props, run, theme } from 'herdr';
-import { mdPaths, splitAddress } from './logic.mjs';
+import { isMarkdown, mdPaths, splitAddress } from './logic.mjs';
 
 // Prints the machine's home, then the paths that are files there, made absolute: relative ones against
 // the terminal's folder, ~/ against home. Paths travel as arguments, never as script.
@@ -20,6 +20,7 @@ export default class MdOpen extends View {
     const terminal = f?.shown ?? f?.terminal;
     if (!terminal) { this.note = 'Focus a terminal first.'; return; }
     const { machine, address } = splitAddress(terminal);
+    this.machine = machine;
     cx.spawn(async cx => {
       try {
         const screen = await exec('hc', ['read', '--lines', '2000', address], { on: machine });
@@ -28,14 +29,20 @@ export default class MdOpen extends View {
         const [home, ...files] = real.stdout.split('\n');
         this.home = home;
         this.rows = [...new Set(files.filter(Boolean))];
-        this.note = this.rows.length ? '' : 'No markdown files in this terminal.';
+        this.note = this.rows.length ? '' : 'No markdown, HTML or PDF files in this terminal.';
       } catch { this.note = 'Could not read this terminal.'; }
       cx.notify();
     });
   }
 
-  open(path) {
+  open(path, cx) {
     if (!path) return;
+    if (!isMarkdown(path)) {
+      // The system opener runs on this computer, so it can't reach another machine's files.
+      if (this.machine) { this.note = `${path.split('/').pop()} is on ${this.machine}; only its markdown opens from here.`; return cx.notify(); }
+      closeOverlay(props().overlay);
+      return cx.open_url(`file://${path.split('/').map(encodeURIComponent).join('/')}`);
+    }
     closeOverlay(props().overlay);
     const argv = ['fresh', path];
     // A layout terminal block has no pane to split; a tab is the next best place.
@@ -49,17 +56,17 @@ export default class MdOpen extends View {
     return v_flex().id('md-open').track_focus(this.handle).size_full().min_h(0).p(18).gap(12).bg(t.popover).text_size(12)
       .on_key_down((e, cx) => {
         if (e.key === 'escape') return closeOverlay(props().overlay);
-        if (e.key === 'enter') return this.open(this.rows[this.at]);
+        if (e.key === 'enter') return this.open(this.rows[this.at], cx);
         if (e.key === 'down' || e.key === 'up') {
           this.at = Math.max(0, Math.min(this.rows.length - 1, this.at + (e.key === 'down' ? 1 : -1)));
           cx.stop_propagation(); cx.notify();
         }
       })
-      .child(h_flex().justify_between().child(div().text_size(15).font_semibold().text_color(t.foreground).child('Open markdown')).child(div().text_color(t.dim).child('↑ ↓  Enter  Esc')))
+      .child(h_flex().justify_between().child(div().text_size(15).font_semibold().text_color(t.foreground).child('Open a file')).child(div().text_color(t.dim).child('↑ ↓  Enter  Esc')))
       .when(Boolean(this.note), el => el.child(div().text_color(t.dim).child(this.note)))
       .child(v_flex().flex_1().min_h(0).gap(3).children(this.rows.slice(start, start + 10).map((path, offset) => {
         const i = start + offset;
-        return v_flex().id(`md-${i}`).px(10).py(6).rounded(7).gap(2).cursor_pointer().when(i === this.at, el => el.bg(t.hover)).hover(s => s.bg(t.hover)).on_click(() => this.open(path))
+        return v_flex().id(`md-${i}`).px(10).py(6).rounded(7).gap(2).cursor_pointer().when(i === this.at, el => el.bg(t.hover)).hover(s => s.bg(t.hover)).on_click((_e, cx) => this.open(path, cx))
           .child(div().text_color(t.foreground).child(path.split('/').pop()))
           .child(div().text_color(t.muted).child((this.home && path.startsWith(`${this.home}/`) ? `~${path.slice(this.home.length)}` : path).slice(0, 120)));
       })));

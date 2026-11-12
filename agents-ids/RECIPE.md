@@ -23,7 +23,31 @@ except each row is 44px tall instead of 30px and has two lines:
    restarts), again only when the doing line or the state changes and stalls anew.
 
 An X on each agent row opens a check of what closing it would lose (still working, uncommitted changes,
-sub-agents) before it ends the terminal; it refuses if the terminal changed meanwhile.
+sub-agents, and for a herd lead `Herd: N tabs still open (they keep running)`) before it ends the
+terminal; it refuses if the terminal changed meanwhile.
+
+**Next line and waiting** (labels in the repo's `docs/labels.md`): once an agent is done or idle, its third
+line is `→ <agent.next>` (`dim`; `accent` when `agent.needs` is `you`), else `waiting: <agent.waiting> · 4m`,
+else the `agent.doing` line. The row's status follows: `agent.needs=you` with a Next line is *asks*, a
+`Your turn` pill (`accent`; `?` where the header says Needs you) sorted with Needs you; `agent.waiting` is
+*waiting*, a clock icon in its own **Waiting** section after Working. A running or blocked agent always
+shows Herdr's own status.
+
+**Herds**: a live terminal on this computer with `agent.lead=<t>` naming another live one is that lead's
+herd member. A lead row gets a line `herd · 3 working · 1 needs you · 1 done`. In Priority view members
+leave their own place and nest under the lead (one level, tree lines like sub-agents, folding with its
+chevron), and the lead takes its most urgent member's section. Elsewhere members stay in their space or
+project with a `↳ <lead>` chip that focuses the lead; a member whose lead is gone says `lead gone`. A member
+with `agent.brief` shows the brief's short name (no date prefix or extension); a click opens it, markdown
+in `fresh` in a split beside the member like md-open, anything else with `cx.open_url`.
+
+**Send to several**: a pen icon left of `⏏` turns picking on. Each row gets a check box and a click picks it
+(never focusing or typing); a bar at the bottom says `To t5, t7`, holds an input and Cancel / `Send to N`
+(Enter sends). Per picked agent: `hc read` its screen, find its input box (Hermes only for now: the last
+line, `❯`, right under its status bar; anything else, such as a multi-line draft, counts as unreadable), and
+`hc send` the text only when the box is empty. Someone typing in the few milliseconds between the read and
+the send still joins the draft: herdr-core has no atomic send-if-empty. An unreadable box, unsent text
+or a failed send skips it. One toast says where it went and why the rest didn't; the skipped stay picked.
 
 The sort menu has a third choice, **Grouped by project**: one header per git repository, named after
 the repo's folder, with its worktrees and subfolders under the main repo (`git rev-parse
@@ -96,7 +120,8 @@ opens nothing new.
 
 **Built from:** a copy of the shipped `agents` mod (herdr-app 0.1.12). Its own logic is in
 `extras.mjs` (pure: `shortSid`, `resumeArgv`, `rememberSessions`, `recentSessions`, `unloadRows`,
-`snapshotOf`, `runningSids`, `reopenable`, `reopenSpace`, `reopenSummary`). In `main.js`: a map
+`snapshotOf`, `runningSids`, `reopenable`, `reopenSpace`, `reopenSummary`, `effStatus`, `thirdLine`,
+`herds`, `herdSummary`, `briefName`, `inputBox`). In `main.js`: a map
 from terminal address to `labels["agent.session"]` from `terminals()`; the second line in the row
 render; `recentRow()` and `resume()` (`resumeSpace`, `exec("test", ["-d", cwd], { on })`, then
 `run("tab.new", { space, folder, argv })`);
@@ -131,3 +156,9 @@ call the same script from its session-start hook.
   agent turns it `⚠ runs: sleep 600`. Save only writes the file and closes nothing; Save & close N safe
   closes only the `✓` tabs; Reopen brings them back in their spaces with their tab names, and a second
   Reopen opens nothing.
+- `hc label <t> 'agent.next=your go to merge' agent.needs=you` on a done agent moves it to Needs you with
+  `Your turn`; `agent.waiting=gh` (and no needs) moves it to Waiting with a clock.
+- `hc label <t2> agent.lead=<t1> agent.brief=/tmp/x/2026-11-12-fix.md`: in Priority, t2 nests under t1,
+  t1 reads `herd · …`, the row shows `fix`; in Grouped by space t2 stays put with `↳ <t1's name>`.
+- Picking a Hermes agent with an empty box and one with a typed draft, then sending: only the first gets
+  the text; the second stays picked and the toast says `unsent text there`.

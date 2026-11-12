@@ -40,12 +40,13 @@ export function sameTerminal(before, after) {
     before.created_ms === after.created_ms && before.labels?.["agent.session"] === after.labels?.["agent.session"]);
 }
 
-export function closeFacts(status, git, children) {
+export function closeFacts(status, git, children, herd = 0) {
   return [
     `Agent: ${status || "unknown"}`,
     `Git: ${git == null ? "unknown" : git ? `${git} uncommitted changes` : "no uncommitted changes"}`,
     `Sub-agents: ${children == null ? "unknown" : children || "none"}`,
     "Background processes: unknown",
+    ...(herd ? [`Herd: ${herd} tab${herd > 1 ? "s" : ""} still open (they keep running)`] : []),
   ];
 }
 
@@ -248,4 +249,73 @@ export function reopenSummary(results) {
     return `${word} ${hits.length}${why.length ? ` (${why.join(", ")})` : ""}`;
   };
   return [part("Reopened", "done"), part("skipped", "skip"), part("failed", "fail")].filter(Boolean).join(" · ") || "Nothing to reopen";
+}
+
+// agents-ids 0.9.0: what a finished agent says next, background waits, herds and sending to several.
+// Labels (docs/labels.md): agent.next, agent.needs, agent.waiting, agent.lead, agent.brief.
+
+const label = (labels, key, n) => oneLine(labels?.[key], n);
+const finished = (status) => status === "done" || status === "idle";
+
+/** The status a row shows: a finished agent whose Next line asks for you is "asks" (with Needs you), one
+ *  with background jobs that will wake it is "waiting"; anything else is Herdr's own status. */
+export function effStatus(status, labels) {
+  if (!finished(status)) return status;
+  if (labels?.["agent.needs"] === "you" && label(labels, "agent.next", 200)) return "asks";
+  if (label(labels, "agent.waiting", 30)) return "waiting";
+  return status;
+}
+
+/** The third row line: the Next line of a finished agent (`you`: it asks for you), its wait, or what it's doing. */
+export function thirdLine(labels, status, now) {
+  if (finished(status)) {
+    const next = label(labels, "agent.next", 200);
+    const wait = label(labels, "agent.waiting", 30);
+    const doing = doingLine(labels, status, now);
+    const age = doing?.text.match(/ · (\S+)$/)?.[1];
+    if (next) return { text: `→ ${next}`, you: labels?.["agent.needs"] === "you", stale: false, tip: `Next: ${next}${wait ? `\nwaiting: ${wait}` : ""}` };
+    if (wait) return { text: `waiting: ${wait}${age ? ` · ${age}` : ""}`, you: false, stale: false, tip: "background jobs will wake it" };
+  }
+  const doing = doingLine(labels, status, now);
+  return doing && { ...doing, you: false };
+}
+
+/** Herds: lead address -> member addresses, from members' `agent.lead` labels. Only this computer's
+ *  terminals nest (a remote member's label names a terminal on its own machine), and only under a live
+ *  lead. `gone`: members whose lead isn't live any more. */
+export function herds(all) {
+  const live = new Set(all.filter((k) => k.state === "live").map((k) => k.address));
+  const out = new Map();
+  const gone = new Set();
+  for (const k of all) {
+    const lead = label(k.labels, "agent.lead", 64);
+    if (k.state !== "live" || !lead || machineOf(k.address) || lead === k.address) continue;
+    if (!live.has(lead) || machineOf(lead)) { gone.add(k.address); continue; }
+    out.set(lead, [...(out.get(lead) ?? []), k.address]);
+  }
+  return { byLead: out, gone };
+}
+
+/** "herd · 3 working · 1 needs you · 1 done" from members' shown statuses. */
+export function herdSummary(statuses) {
+  const n = (...s) => statuses.filter((x) => s.includes(x)).length;
+  const parts = [[n("working"), "working"], [n("blocked", "asks"), "needs you"], [n("waiting"), "waiting"], [n("done", "idle"), "done"]];
+  return ["herd", ...parts.filter(([c]) => c).map(([c, w]) => `${c} ${w}`)].join(" · ");
+}
+
+/** A brief's short name for the row: its file name without a leading date or the extension. */
+export const briefName = (labels) => label(labels, "agent.brief", 300).replace(/\/+$/, "").split("/").pop()
+  .replace(/^\d{4}-\d{2}-\d{2}[-_ ]?/, "").replace(/\.[^.]+$/, "").slice(0, 24);
+
+/** What sits in an agent's input box, from `hc read` text: a string ("" when empty), or null when this
+ *  agent's box can't be read, so a send must not go there (it would replace or join a draft). */
+export function inputBox(app, screen) {
+  if (agentKey(app) !== "hermes") return null; // shortcut: Hermes only; add an agent once its prompt line is checked.
+  // Fail closed: only a one-line composer right under Hermes's status bar (`─ ready │ …`) counts; an older
+  // ❯ in the transcript, or a multi-line draft, reads as null.
+  const lines = String(screen ?? "").split("\n").filter((l) => l.trim());
+  const [bar, box] = lines.slice(-2);
+  if (!box || !/^\s*❯/.test(box) || !/^\s*─.*│/.test(bar ?? "")) return null;
+  const text = box.replace(/^\s*❯\s?/, "").trim();
+  return text === "Ctrl+C to interrupt…" ? "" : text;
 }

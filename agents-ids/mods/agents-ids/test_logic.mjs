@@ -1,6 +1,6 @@
 // Self-check for agents-ids: node mods/agents-ids/test_logic.mjs
 import assert from "node:assert/strict";
-import { agentKey, sessionFromArgv, closeFacts, sameTerminal, doingLine, stalls, hideSession, projectOf, recentSessions, rememberSessions, reopenable, reopenSpace, reopenSummary, resumeArgv, resumeSpace, runningSids, shortSid, snapshotOf, snapshotPath, unloadRows } from "./extras.mjs";
+import { briefName, effStatus, herds, herdSummary, inputBox, thirdLine, agentKey, sessionFromArgv, closeFacts, sameTerminal, doingLine, stalls, hideSession, projectOf, recentSessions, rememberSessions, reopenable, reopenSpace, reopenSummary, resumeArgv, resumeSpace, runningSids, shortSid, snapshotOf, snapshotPath, unloadRows } from "./extras.mjs";
 
 const identity = { address: "t1", state: "live", created_ms: 7, labels: { "agent.session": "one" } };
 assert.equal(sameTerminal(identity, identity), true);
@@ -160,4 +160,40 @@ assert.equal(reopenSpace(spaceNow, snap.rows[5]), "lap/s2");      // by id
 assert.equal(reopenSpace([{ id: "lap/s2", machine: "lap", name: "acme" }], snap.rows[0]), null); // another machine's space never
 assert.equal(reopenSummary([{ done: "" }, { done: "" }, { skip: "already open" }, { fail: "lap offline" }]), "Reopened 2 · skipped 1 (already open) · failed 1 (lap offline)");
 assert.equal(reopenSummary([]), "Nothing to reopen");
+
+// 0.9.0: Next line, waiting, herds, send to several.
+assert.equal(closeFacts("idle", 0, 0, 2).at(-1), "Herd: 2 tabs still open (they keep running)");
+assert.equal(closeFacts("idle", 0, 0).length, 4);
+const asks = { "agent.next": "your go for the test", "agent.needs": "you", "agent.waiting": "gh" };
+assert.equal(effStatus("done", asks), "asks");
+assert.equal(effStatus("idle", { ...asks, "agent.needs": "no" }), "waiting");
+assert.equal(effStatus("working", asks), "working");   // a running turn is Herdr's to say
+assert.equal(effStatus("blocked", asks), "blocked");
+assert.equal(effStatus("done", { "agent.needs": "you" }), "done"); // needs without a Next line: nothing to show
+assert.equal(effStatus("done", undefined), "done");
+const t0 = 1000 * 1000;
+assert.deepEqual(thirdLine(asks, "done", t0), { text: "→ your go for the test", you: true, stale: false, tip: "Next: your go for the test\nwaiting: gh" });
+assert.deepEqual(thirdLine({ "agent.waiting": "make", "agent.doing": "done", "agent.doing.since": "1000" }, "idle", t0 + 4 * 60000),
+  { text: "waiting: make · 4m", you: false, stale: false, tip: "background jobs will wake it" });
+assert.equal(thirdLine({ ...asks, "agent.doing": "thinking" }, "working", t0).text, "thinking");
+assert.equal(thirdLine({ "agent.next": "a\nb\n\nc" }, "done", t0).text, "→ a b c"); // never more lines
+assert.equal(thirdLine({}, "done", t0), null);
+const live = (address, labels = {}) => ({ address, state: "live", labels });
+const h = herds([live("t1"), live("t2", { "agent.lead": "t1" }), live("t3", { "agent.lead": "t1" }), live("t4", { "agent.lead": "t9" }),
+  { ...live("t5", { "agent.lead": "t1" }), state: "finished" }, live("box/t6", { "agent.lead": "t1" }), live("t7", { "agent.lead": "t7" })]);
+assert.deepEqual([...h.byLead], [["t1", ["t2", "t3"]]]);
+assert.deepEqual([...h.gone], ["t4"]);
+assert.equal(herdSummary(["working", "asks", "blocked", "done", "idle", "waiting"]), "herd · 1 working · 2 needs you · 1 waiting · 2 done");
+assert.equal(herdSummary([]), "herd");
+assert.equal(briefName({ "agent.brief": "/home/alex/briefs/2026-11-12-fix.md" }), "fix");
+assert.equal(briefName({ "agent.brief": "/home/alex/BRIEF.md" }), "BRIEF");
+assert.equal(briefName({}), "");
+const BAR = " ─ ready │ opus 5.5 │ 80k/500k\n";
+assert.equal(inputBox("hermes", "  ❯ old message in the transcript\n...\n" + BAR + " ❯\n\n"), "");
+assert.equal(inputBox("hermes", BAR + " ❯ Ctrl+C to interrupt…"), "");
+assert.equal(inputBox("hermes", BAR + " ❯ half a thought"), "half a thought");
+assert.equal(inputBox("hermes", BAR + " ❯\n   second line of a draft"), null); // multi-line draft
+assert.equal(inputBox("hermes", "  ❯ old message in the transcript\n   reply text"), null); // no composer at the bottom
+assert.equal(inputBox("hermes", "no prompt on screen"), null);
+assert.equal(inputBox("claude", " ❯"), null); // only agents whose box is known
 console.log("ok");

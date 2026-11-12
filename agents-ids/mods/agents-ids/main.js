@@ -8,9 +8,9 @@
 // session to a snapshot file and closes the tabs safe to close; "Reopen" (agents-ids.load) brings them back.
 
 import { View, div, image, svg } from "gpui-kit";
-import { v_flex, h_flex } from "gpui-base";
+import { v_flex, h_flex, InputState, Input } from "gpui-base";
 import { agents, terminals, panes, focused, spaces, run, theme, shared, setShared, setAgentOrder, openOverlay, closeOverlay, props, window, layout, exec, notify, playSound, appHome, readTextFile, home, writeTextFile, nextCommand, machines } from "herdr";
-import { closeFacts, sameTerminal, doingLine, hideSession, machineOf, projectOf, recentSessions, rememberSessions, resumeSpace, shortSid, stalls, reopenable, reopenSpace, reopenSummary, resumeArgv, runningSids, snapshotOf, snapshotPath, unloadRows } from "./extras.mjs";
+import { briefName, closeFacts, effStatus, herds, herdSummary, inputBox, sameTerminal, thirdLine, hideSession, machineOf, projectOf, recentSessions, rememberSessions, resumeSpace, shortSid, stalls, reopenable, reopenSpace, reopenSummary, resumeArgv, runningSids, snapshotOf, snapshotPath, unloadRows } from "./extras.mjs";
 
 // agents-ids: the snapshot is written on this computer, its folder made first.
 async function writeSnapshot(snap) {
@@ -63,7 +63,9 @@ function title(tab, l) {
   const telling = live && live !== prog && !/^[~/]|^[A-Za-z]:\\/.test(live) && !live.includes("@") && live.toLowerCase() !== l?.program?.key;
   return (tab.name === prog || !tab.named) && telling ? live : tab.name;
 }
-const RANK = { blocked: 4, done: 3, working: 2, idle: 1 };
+// agents-ids: "asks" (a finished agent's Next line asks for you) sits with Needs you; "waiting" (background
+// jobs will wake it) gets its own section after Working.
+const RANK = { blocked: 4, asks: 4, done: 3, working: 2, waiting: 1.5, idle: 1 };
 // A sub-agent without a pane isn't in agents(): its raw word, error counting as
 // blocked. It's never done: it reports to its parent, and the parent's done is the news.
 const kidStatus = (k, listed) => {
@@ -76,7 +78,7 @@ const SORTS = [
   { id: "project", label: "Grouped by project", icon: "folder" }, // agents-ids
 ];
 const sortOf = () => SORTS.find((s) => s.id === shared("agents.sort")) ?? SORTS[0];
-const SECTION = { 4: "Needs you", 3: "Done", 2: "Working", 1: "Idle" };
+const SECTION = { 4: "Needs you", 3: "Done", 2: "Working", 1.5: "Waiting", 1: "Idle" };
 const SECTION_STATUS = { 4: "blocked", 3: "done", 2: "working" };
 
 function duration(ms) {
@@ -125,6 +127,10 @@ export default class Agents extends View {
     this.migratingPins = new Set();
     // Agent sessions seen in a terminal (sid -> where, when), for Recent sessions.
     this.remembered = JSON.parse(localStorage.getItem("sessions") ?? "{}");
+    // agents-ids: "Send to several": picked agents and the message box.
+    this.picked = new Set();
+    this.msg = InputState.new({ placeholder: "Message to the picked agents…" });
+    this.msg.on("submit", (_e, cx) => this.sendPicked(cx));
     cx.timer.every(30000, (cx) => cx.notify());
     // agents-ids: keys for Save & close / Reopen.
     cx.spawn(async (cx) => {
@@ -204,7 +210,14 @@ export default class Agents extends View {
     if (!same || cur.status !== "idle") this.held = cur ? { address: cur.address, rank: RANK[cur.status] ?? 0 } : null;
   }
 
+  // agents-ids: the status a row shows (asks, waiting) from its labels; Herdr's own otherwise.
+  eff(a) {
+    return effStatus(a.status, this.labelsOf?.get(a.address));
+  }
+
   rank(a) {
+    const e = this.eff(a);
+    if (e !== a.status) return RANK[e];
     const sawDone = a.address === this.held?.address && this.held.rank === RANK.done && a.status === "idle";
     return sawDone ? RANK.done : RANK[a.status] ?? 0;
   }
@@ -378,6 +391,10 @@ export default class Agents extends View {
     if (a.status === "working") return svg("mods/workspace-chrome/spinner.svg").size(12).mx(1).flex_none().text_color(t.working).spin(900);
     if (a.status === "blocked" && compact) return div().size(14).flex_none().rounded(4).bg(t.blocked + "26").text_size(10.5).font_bold().text_color(t.blocked).flex().items_center().justify_center().child("!");
     if (a.status === "blocked") return div().flex_none().px(6).h(18).rounded(5).bg(t.blocked + "26").text_size(10.5).font_semibold().text_color(t.blocked).flex().items_center().child("Needs you");
+    // agents-ids: finished, and its Next line asks for you; or parked until a background job wakes it.
+    if (a.status === "asks" && compact) return div().size(14).flex_none().rounded(4).bg(t.accent + "26").text_size(10.5).font_bold().text_color(t.accent).flex().items_center().justify_center().child("?");
+    if (a.status === "asks") return div().flex_none().px(6).h(18).rounded(5).bg(t.accent + "26").text_size(10.5).font_semibold().text_color(t.accent).flex().items_center().child("Your turn");
+    if (a.status === "waiting") return svg("mods/workspace-chrome/clock.svg").size(12).mx(1).flex_none().text_color(t.dim);
     // Idle: a ring; done: a dot.
     if (a.status === "idle") return div().size(7).mx(3).flex_none().rounded(4).border(1.5).border_color(t.idle ?? t.dim);
     return div().size(7).mx(3).flex_none().rounded(4).bg(a.status === "done" ? color : t.dim + "00");
@@ -390,14 +407,15 @@ export default class Agents extends View {
     const target = all.find(k => k.address === p.closeTarget && k.state === "live");
     const status = agents().find(a => a.address === p.closeTarget)?.status ?? target?.status;
     const children = target ? this.tree(all, p.closeTarget).length : null;
-    const facts = closeFacts(status, this.gitCount, children);
-    const colors = [status === "working" || !status ? t.blocked : t.muted, this.gitCount === 0 ? t.muted : t.blocked, children === 0 ? t.muted : t.blocked, t.blocked];
+    const crew = herds(all).byLead.get(p.closeTarget)?.length ?? 0; // agents-ids
+    const facts = closeFacts(status, this.gitCount, children, crew);
+    const colors = [status === "working" || !status ? t.blocked : t.muted, this.gitCount === 0 ? t.muted : t.blocked, children === 0 ? t.muted : t.blocked, t.blocked, t.muted];
     const button = (id, text, click) => div().id(id).px(14).h(32).rounded(8).flex().items_center().bg(t.raised).text_color(t.foreground).hover(s => s.bg(t.hover)).on_click(click).child(text);
     return v_flex().id("close-check").track_focus(this.handle).size_full().p(18).gap(10).bg(t.popover)
       .on_key_down((e, cx) => { if (e.key === "escape") { closeOverlay(p.overlay); cx.stop_propagation(); } })
       .child(div().text_size(15).font_semibold().text_color(t.foreground).child("Safe to close?"))
       .children(facts.map((fact, i) => div().text_size(12).text_color(colors[i]).child(fact)))
-      .child(div().flex_1().text_size(12).text_color(this.closeError ? t.blocked : t.muted).child(this.closeError || "Closing ends this terminal and all its sub-agents."))
+      .child(div().flex_1().text_size(12).text_color(this.closeError ? t.blocked : t.muted).child(this.closeError || `Closing ends this terminal and all its sub-agents.${crew ? " Its herd's tabs keep running." : ""}`))
       .child(h_flex().justify_end().gap(8)
         .child(button("close-cancel", "Cancel", () => closeOverlay(p.overlay)))
         .child(button("close-confirm", "Close", (_e, cx) => {
@@ -412,7 +430,8 @@ export default class Agents extends View {
     const target = terminals().find(k => k.address === address && k.state === "live");
     if (!target) return;
     const identity = { address, state: target.state, created_ms: target.created_ms, labels: { "agent.session": target.labels?.["agent.session"] } };
-    openOverlay({ mod: "agents-ids", kind: "dialog", width: 380, height: 255, props: { closeTarget: address, identity } });
+    const crew = herds(terminals()).byLead.get(address)?.length ?? 0; // agents-ids: one more line for a herd lead
+    openOverlay({ mod: "agents-ids", kind: "dialog", width: 380, height: crew ? 275 : 255, props: { closeTarget: address, identity } });
   }
 
   // agents-ids: "Save & close sessions": a dialog copy of this mod; the key toggles it.
@@ -594,6 +613,43 @@ export default class Agents extends View {
     });
   }
 
+  // agents-ids: types the message into each picked agent, but only where its input box is readable and
+  // empty: a send into a draft would join or replace it. Skipped ones stay picked, so a retry is one Enter.
+  sendPicked(cx) {
+    const text = this.msg.value().trim();
+    const picked = [...this.picked];
+    if (!text || !picked.length || this.sending) return;
+    this.sending = true;
+    cx.notify();
+    cx.spawn(async (cx) => {
+      const sent = [];
+      const skipped = [];
+      for (const addr of picked) {
+        const k = terminals().find((x) => x.address === addr && x.state === "live");
+        const app = k?.labels?.["agent.app"] ?? k?.agent ?? agents().find((a) => a.address === addr)?.program?.key;
+        try {
+          if (!k) { skipped.push([addr, "gone"]); continue; }
+          const screen = await exec("hc", ["read", addr], { timeout: 5000 });
+          // shortcut: someone typing between this read and the send below still joins the draft (a few ms); needs an atomic send-if-empty in herdr-core.
+          const box = screen.code === 0 ? inputBox(app, screen.stdout) : null;
+          if (box === null) { skipped.push([addr, "can't read its input box"]); continue; }
+          if (box) { skipped.push([addr, "unsent text there"]); continue; }
+          const r = await exec("hc", ["send", addr, text], { timeout: 10000 });
+          if (r.code === 0) sent.push(addr);
+          else skipped.push([addr, r.stderr.trim().slice(0, 50) || "send failed"]);
+        } catch (e) {
+          skipped.push([addr, String(e?.message ?? e).slice(0, 50)]);
+        }
+      }
+      this.sending = false;
+      if (!skipped.length) this.msg.set_value("");
+      this.picked = new Set(skipped.map(([addr]) => addr));
+      if (!this.picked.size) this.selecting = false;
+      notify({ title: `Sent to ${sent.length} agent${sent.length === 1 ? "" : "s"}`, body: skipped.length ? `Not sent: ${skipped.map(([a, why]) => `${a} (${why})`).join(", ")}` : sent.join(", "), level: skipped.length ? "warning" : "success" });
+      cx.notify();
+    });
+  }
+
   render(cx) {
     const t = theme();
     if (props()?.closeTarget) return this.closeDialog(t);
@@ -604,6 +660,7 @@ export default class Agents extends View {
     let list = agents();
     this.listed = new Map(list.map((a) => [a.address, a.status]));
     const all = terminals();
+    this.labelsOf = new Map(all.map((k) => [k.address, k.labels ?? {}])); // agents-ids
     this.migratePins(all);
     this.sessions = new Map(all.map((k) => [k.address, k.labels?.["agent.session"]]));
     const shown = focused()?.agent;
@@ -612,7 +669,16 @@ export default class Agents extends View {
     this.alertStalls(list, all, now);
     this.hold(list);
     const byPriority = sort.id === "priority";
-    const urgency = new Map(list.map((a) => [a.address, Math.max(this.rank(a), ...this.tree(all, a.address).map((s) => RANK[kidStatus(s.t, this.listed)] ?? 0))]));
+    // agents-ids: herds (members' agent.lead labels). In Priority, members nest under their lead, one level
+    // deep; the other views keep them in their space or project with a "↳ lead" chip.
+    const herd = herds(all);
+    const agentAt = new Map(list.map((a) => [a.address, a]));
+    const leadOf = new Map([...herd.byLead].flatMap(([l, ms]) => ms.map((m) => [m, l])));
+    const crewOf = (addr) => (herd.byLead.get(addr) ?? []).map((m) => agentAt.get(m)).filter(Boolean);
+    const candidates = new Set(byPriority && !collapsed ? list.filter((a) => !a.pinned && agentAt.has(leadOf.get(a.address))).map((a) => a.address) : []);
+    const nested = new Set([...candidates].filter((m) => !candidates.has(leadOf.get(m))));
+    const matesOf = (a) => crewOf(a.address).filter((m) => nested.has(m.address));
+    const urgency = new Map(list.map((a) => [a.address, Math.max(this.rank(a), ...this.tree(all, a.address).map((s) => RANK[kidStatus(s.t, this.listed)] ?? 0), ...matesOf(a).map((m) => this.rank(m)))]));
     const rankOf = (a) => urgency.get(a.address);
     // agents-ids: "Grouped by project" asks git once per folder; the stable sort keeps space order inside a project.
     const byProject = sort.id === "project";
@@ -638,23 +704,25 @@ export default class Agents extends View {
       });
     }
     // agents-ids: Priority sections read Needs you, Working, Idle, Done (rank -> position).
-    const place = (a) => ({ 4: 4, 2: 3, 1: 2, 3: 1 })[rankOf(a) || RANK.idle];
+    const place = (a) => ({ 4: 4, 2: 3, 1.5: 2.5, 1: 2, 3: 1 })[rankOf(a) || RANK.idle];
     if (byPriority) list = [...list].sort((x, y) => place(y) - place(x) || this.since(y) - this.since(x) || y.seq - x.seq);
+    const kidsOf = (a) => matesOf(a).sort((x, y) => place(y) - place(x) || y.seq - x.seq);
     const pinned = list.filter((a) => a.pinned);
-    const rest = list.filter((a) => !a.pinned);
+    const rest = list.filter((a) => !a.pinned && !nested.has(a.address));
     list = [...pinned, ...rest];
-    setAgentOrder(list.map((a) => a.address));
+    setAgentOrder(list.flatMap((a) => [a, ...kidsOf(a)]).map((a) => a.address));
 
     const withKids = (a, i) => {
       const subs = collapsed ? [] : this.tree(all, a.address);
-      const r = row(a, i, subs);
+      const mates = kidsOf(a);
+      const r = row(a, i, subs, mates);
       if (this.folded.has(a.address)) return [r];
-      return [r, ...subs.map((s) => this.subRow(t, s, shown, byPriority))];
+      return [r, ...subs.map((s) => this.subRow(t, s, shown, byPriority)), ...mates.map((m, j) => row(m, i, [], [], j === mates.length - 1 ? "└" : "├"))];
     };
 
     // The fold chevron; folded, the count too, colored by the most urgent one.
-    const fold = (a, subs) => {
-      const sts = subs.map((s) => kidStatus(s.t, this.listed));
+    const fold = (a, subs, mates = []) => {
+      const sts = [...subs.map((s) => kidStatus(s.t, this.listed)), ...mates.map((m) => this.eff(m))];
       const top = sts.reduce((m, s) => ((RANK[s] ?? 0) > (RANK[m] ?? 0) ? s : m), null);
       const open = !this.folded.has(a.address);
       return div()
@@ -675,7 +743,7 @@ export default class Agents extends View {
           cx.notify();
         })
         .child(svg(`mods/workspace-chrome/chevron-${open ? "down" : "right"}.svg`).size(11).flex_none())
-        .when(!open, (el) => el.child(String(subs.length)));
+        .when(!open, (el) => el.child(String(subs.length + mates.length)));
     };
 
     // A row reads "space \u00b7 detail": the detail is a tab someone named or the
@@ -686,16 +754,29 @@ export default class Agents extends View {
       const tab = tabs.find(tab => tab.id === a.tab);
       return tab ? title(tab, lead(tab)) : a.title || a.program?.name || "";
     };
-    const detail = new Map(list.map(a => [a.address, /^\d+$/.test(label(a)) ? null : label(a)]));
+    const everyone = [...agentAt.values()]; // agents-ids: nested herd members need their tab names too
+    const detail = new Map(everyone.map(a => [a.address, /^\d+$/.test(label(a)) ? null : label(a)]));
     const seen = {};
-    for (const a of list) { const k = `${a.space_name}\u0000${detail.get(a.address) ?? ""}`; seen[k] = (seen[k] ?? 0) + 1; }
-    for (const a of list) {
+    for (const a of everyone) { const k = `${a.space_name}\u0000${detail.get(a.address) ?? ""}`; seen[k] = (seen[k] ?? 0) + 1; }
+    for (const a of everyone) {
       if (detail.get(a.address) == null && seen[`${a.space_name}\u0000`] > 1) detail.set(a.address, label(a));
     }
 
-    const row = (a, i, subs = []) => {
+    // agents-ids: the brief a herd member works from opens beside it (markdown in `fresh`, like md-open),
+    // anything else with the system opener.
+    const openBrief = (a, path, cx) => /\.(md|markdown)$/i.test(path)
+      ? run("pane.split", { direction: "right", pane: a.pane, argv: ["fresh", path] })
+      : cx.open_url(`file://${path.split("/").map(encodeURIComponent).join("/")}`);
+    const togglePick = (a, cx) => {
+      this.picked.has(a.address) ? this.picked.delete(a.address) : this.picked.add(a.address);
+      cx.notify();
+    };
+
+    // tree: "├" or "└" for a herd member nested under its lead (Priority).
+    const row = (a, i, subs = [], mates = [], tree = null) => {
       const pic = icon(a.program, 16, t.foreground);
       const more = detail.get(a.address);
+      const st = this.eff(a); // agents-ids
       // An agent on another machine (`vps/t7`) says which.
       const machine = a.address.includes("/") ? a.address.split("/")[0] : null;
       if (collapsed) {
@@ -709,10 +790,10 @@ export default class Agents extends View {
           .hover((s) => s.bg(t.hover))
           .on_click(() => run("pane.focus", { pane: a.pane }))
           .child(div().flex_1().min_w(0).whitespace_nowrap().text_right().text_color(t.muted).child(String(i + 1)))
-          .child(h_flex().w(14).flex_none().items_center().justify_center().child(this.status(t, a, true)));
+          .child(h_flex().w(14).flex_none().items_center().justify_center().child(this.status(t, { status: st }, true)));
       }
       const when = this.since(a);
-      const idle = a.status === "idle" && !a.focused;
+      const idle = st === "idle" && !a.focused;
       const isPinned = a.pinned;
       const pin = div()
         .id(`pin-${a.address}`)
@@ -736,8 +817,16 @@ export default class Agents extends View {
       const full = byPriority || byProject || isPinned; // agents-ids: a project spans spaces, so its rows name theirs
       const name = full ? a.space_name || label(a) : more ?? (/^\d+$/.test(label(a)) ? a.program?.name || label(a) : label(a));
       const sid = this.sessions.get(a.address);
-      // agents-ids: the activity label is optional for integrations that don't report it.
-      const doing = doingLine(all.find((k) => k.address === a.address)?.labels, a.status, now);
+      const labels = this.labelsOf.get(a.address);
+      // agents-ids: the third line: a finished agent's Next line or wait, else what it is doing (all optional labels).
+      const doing = thirdLine(labels, a.status, now);
+      // agents-ids: herd. A lead says how its herd is doing; a member outside its lead's nest names the lead.
+      const crew = crewOf(a.address);
+      const herdLine = crew.length ? herdSummary(crew.map((m) => this.eff(m))) : null;
+      const brief = briefName(labels);
+      const leadAddr = tree ? null : leadOf.get(a.address);
+      const leadAgent = leadAddr && agentAt.get(leadAddr);
+      const leadChip = leadAddr ? `\u21b3 ${leadAgent ? detail.get(leadAddr) ?? leadAgent.space_name ?? leadAddr : leadAddr}` : herd.gone.has(a.address) ? "lead gone" : null;
       const ids = h_flex()
         .id(`ids-${a.address}`)
         .min_w(0)
@@ -752,16 +841,25 @@ export default class Agents extends View {
         })
         // agents-ids: the machine shows at the right, so a remote address keeps only its id and the session id fits.
         .child(div().flex_none().text_color(t.accent).child(machine ? a.address.slice(machine.length + 1) : a.address))
-        .when(Boolean(sid), (el) => el.child(div().min_w(0).truncate().text_color(t.dim).child(` \u00b7 ${shortSid(sid)}`)));
-      return h_flex()
+        .when(Boolean(sid), (el) => el.child(div().min_w(0).truncate().text_color(t.dim).child(` \u00b7 ${shortSid(sid)}`)))
+        .when(Boolean(brief), (el) => el.child(div().id(`brief-${a.address}`).min_w(0).truncate().ml(5).px(4).rounded(4).text_color(t.muted)
+          .hover((s) => s.bg(t.hover).text_color(t.foreground)).tooltip(`brief: ${labels["agent.brief"]}\nclick: open it`)
+          .on_click((_e, cx) => { cx.stop_propagation(); openBrief(a, labels["agent.brief"], cx); }).child(brief)))
+        .when(Boolean(leadChip), (el) => el.child(div().id(`lead-${a.address}`).min_w(0).truncate().ml(5).px(4).rounded(4).text_color(t.dim)
+          .when(Boolean(leadAgent), (el) => el.hover((s) => s.bg(t.hover).text_color(t.foreground)).tooltip(`herd lead ${leadAddr}\nclick: go to it`)
+            .on_click((_e, cx) => { cx.stop_propagation(); run("pane.focus", { pane: leadAgent.pane }); }))
+          .child(leadChip)));
+      const kin = subs.length + mates.length;
+      const body = h_flex()
         .id(`ag-${a.address}`)
         .px(8)
-        .h(doing ? 58 : 44)
+        .h(44 + (doing ? 15 : 0) + (herdLine ? 15 : 0))
         .flex_none()
         .rounded(8)
         .items_center()
         .gap(9)
-        .when(a.focused, (el) => el.bg(t.selected))
+        .when(Boolean(tree), (el) => el.flex_1().min_w(0))
+        .when(a.focused || (this.selecting && this.picked.has(a.address)), (el) => el.bg(t.selected))
         .cursor_pointer()
         .hover((s) => s.bg(t.hover))
         .on_hover((on, cx) => {
@@ -769,9 +867,12 @@ export default class Agents extends View {
           else if (this.hovered === a.address) this.hovered = null;
           cx.notify();
         })
-        .on_click(() => run("pane.focus", { pane: a.pane }))
+        // agents-ids: while picking for Send to several, a click picks; it never focuses or types.
+        .on_click((_e, cx) => (this.selecting ? togglePick(a, cx) : run("pane.focus", { pane: a.pane })))
+        .when(Boolean(this.selecting), (el) => el.child(div().size(14).flex_none().rounded(4).border(1.5).border_color(this.picked.has(a.address) ? t.accent : t.input)
+          .flex().items_center().justify_center().when(this.picked.has(a.address), (el) => el.bg(t.accent).child(svg("mods/workspace-chrome/check.svg").size(10).text_color(t.background)))))
         .when(Boolean(pic), el => el.child(div().id(`agent-fold-${a.address}`)
-          .when(subs.length > 0, el => el.on_click((_e, cx) => {
+          .when(kin > 0, el => el.on_click((_e, cx) => {
             cx.stop_propagation();
             this.folded.has(a.address) ? this.folded.delete(a.address) : this.folded.add(a.address);
             cx.notify();
@@ -781,12 +882,19 @@ export default class Agents extends View {
             .child(div().min_w(0).max_w(full && more ? 120 : 200).truncate().text_color(idle ? t.muted : t.foreground).child(name))
             .when(full && Boolean(more), el => el.child(div().flex_1().min_w(0).truncate().text_color(t.dim).child(`\u00b7 ${more}`))))
           .child(ids)
-          .when(Boolean(doing), (el) => el.child(div().min_w(0).truncate().text_size(11).text_color(doing.stale ? t.blocked : t.dim).tooltip(doing.tip || doing.text).child(doing.text))))
+          .when(Boolean(doing), (el) => el.child(div().min_w(0).truncate().text_size(11).text_color(doing.stale ? t.blocked : doing.you ? t.accent : t.dim).tooltip(doing.tip || doing.text).child(doing.text)))
+          .when(Boolean(herdLine), (el) => el.child(div().min_w(0).truncate().text_size(11).text_color(t.muted).child(herdLine))))
         .when(Boolean(machine), el => el.child(div().text_size(10).text_color(t.dim).child(machine)))
-        .when(subs.length > 0, el => el.child(fold(a, subs)))
-        .when(this.hovered === a.address, el => el.child(pin).child(this.xButton(t, `close-${a.address}`, "Check before closing agent", () => this.askClose(a.address))))
+        .when(kin > 0, el => el.child(fold(a, subs, mates)))
+        .when(this.hovered === a.address && !this.selecting, el => el.child(pin).child(this.xButton(t, `close-${a.address}`, "Check before closing agent", () => this.askClose(a.address))))
         .when(this.hovered !== a.address && Boolean(when), el => el.child(div().flex_none().text_size(11).text_color(t.dim).child(duration(now - when))))
-        .child(this.status(t, a, byPriority && !isPinned));
+        .child(this.status(t, { status: st }, byPriority && !isPinned));
+      if (!tree) return body;
+      // agents-ids: a nested herd member, with a tree line from its lead.
+      return h_flex().id(`herd-${a.address}`).pl(14).flex_none().items_start()
+        .child(div().w(10).mr(4).flex_none().h(tree === "└" ? 22 : 44 + (doing ? 15 : 0)).border_l(1.5).border_color(t.input)
+          .child(div().mt(21).w(10).border_b(1.5).border_color(t.input)))
+        .child(body);
     };
 
     // Groups in list order: spaces (grouped) or priority sections. Agents of a
@@ -864,7 +972,17 @@ export default class Agents extends View {
             .items_center()
             .justify_between()
             .child(div().text_size(11.5).font_medium().text_color(t.dim).child("Agents"))
-            .child(h_flex().gap(10).items_center().child(div() // agents-ids: Save & close sessions
+            .child(h_flex().gap(10).items_center().child(div() // agents-ids: Send to several
+              .id("ag-send").text_color(this.selecting ? t.accent : t.dim).hover((s) => s.text_color(t.foreground))
+              .tooltip(this.selecting ? "Stop picking" : "Send one message to several agents")
+              .on_click((_e, cx) => {
+                this.selecting = !this.selecting;
+                if (this.selecting) this.msg.focus();
+                else this.picked.clear();
+                cx.notify();
+              })
+              .child(svg("mods/workspace-chrome/square-pen.svg").size(13)))
+            .child(div() // agents-ids: Save & close sessions
               .id("ag-unload").text_size(12).text_color(t.dim).hover((s) => s.text_color(t.foreground))
               .on_click(() => this.toggleUnload()).tooltip("Save & close sessions (Ctrl+Shift+U)").child("\u23cf"))
             .child(
@@ -883,6 +1001,17 @@ export default class Agents extends View {
         el.child(div().px(12).text_size(12).text_color(t.dim).child("No agent status yet. Agents show up here when they report their status. Older versions and agents inside tmux may not.")),
       )
       .child(v_flex().id("ag-list").flex_1().min_h(0).px(collapsed ? 0 : 8).overflow_y_scrollbar().mode("always").children(rows))
+      // agents-ids: Send to several. Pick agents above, type once, Enter or Send.
+      .when(Boolean(this.selecting) && !collapsed, (el) => el.child(v_flex().id("ag-compose").flex_none().px(8).pt(6).pb(8).gap(6).border_t(1).border_color(t.border)
+        .child(div().text_size(11).text_color(t.dim).truncate().child(this.picked.size ? `To ${[...this.picked].join(", ")}` : "Click agents to pick them"))
+        .child(Input.new(this.msg).h(32).flex_none().px(8).rounded(8).border_1().border_color(t.accent).bg(t.background).text_color(t.foreground))
+        .child(h_flex().gap(6).justify_end()
+          .child(div().id("ag-compose-cancel").px(10).h(26).rounded(7).flex().items_center().text_size(12).bg(t.raised).text_color(t.foreground).hover((s) => s.bg(t.hover))
+            .on_click((_e, cx) => { this.selecting = false; this.picked.clear(); cx.notify(); }).child("Cancel"))
+          .child(div().id("ag-compose-send").px(10).h(26).rounded(7).flex().items_center().text_size(12).bg(t.solid).text_color(t.solid_foreground)
+            .when(!this.picked.size || this.sending, (el) => el.opacity(0.5))
+            .on_click((_e, cx) => this.sendPicked(cx))
+            .child(this.sending ? "Sending…" : `Send to ${this.picked.size}`)))))
       .when(collapsed, (el) =>
         el.child(
           h_flex()

@@ -8,8 +8,8 @@ m = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(m)
 os.environ.pop("HC_TERMINAL_SOCKET", None)
 
-calls = []
-m._send = lambda cmd, env: calls.append((cmd, env.get("HC_TERMINAL_SOCKET")))
+calls, oscs = [], []
+m._send = lambda cmd, env: (oscs if cmd[0] == "osc" else calls).append((cmd, env.get("HC_TERMINAL_SOCKET")))
 m.time.time = lambda: 1234
 m._scan = lambda env: {}  # no terminal runs `hermes --resume`
 hooks = {}
@@ -23,7 +23,7 @@ assert calls == []  # outside herdr-app
 os.environ["HC_TERMINAL_ID"] = "t9"
 label(platform="tui", session_id="s1")
 label(platform="tui", session_id="s1")            # once per session
-label(platform="tui", session_id="sub", parent_session_id="s1")  # subagent: no
+label(platform="subagent", session_id="sub", parent_session_id="s1")  # subagent: no
 label(platform="telegram", session_id="s2")      # not interactive: no
 assert calls == [(["hc", "label", "t9", "agent.session=s1", "agent.app=hermes"], None),
                  (["hc", "label", "t9", "agent.doing=thinking", "agent.doing.since=1234"], None)], calls
@@ -32,9 +32,37 @@ hooks["pre_tool_call"](session_id="s1", tool_name="terminal", args={"command": "
 hooks["pre_tool_call"](session_id="s1", tool_name="terminal", args={"command": "git status another-secret"})
 hooks["pre_tool_call"](session_id="s1", tool_name="read_file", args={"path": "/secret"})  # throttled
 assert calls == [(["hc", "label", "t9", "agent.doing=running: terminal git", "agent.doing.since=1234"], None)]
-hooks["on_human_input_request"](session_id="s1")
-hooks["post_llm_call"](session_id="s1")
-assert calls[-2][0][-2] == "agent.doing=waiting for you" and calls[-1][0][-2] == "agent.doing=done"
+hooks["on_human_input_request"](session_id="s1", kind="clarify", prompt="Which one?", request_id="r1")
+assert oscs[-1][0] == ["osc", "t9", "blocked", "clarify: Which one?"], oscs
+hooks["on_human_input_resolved"](session_id="s1", request_id="r1")
+assert oscs[-1][0] == ["osc", "t9", "working", ""], oscs
+# A real subagent (platform "subagent") changes nothing in the parent's terminal.
+n = len(oscs)
+hooks["pre_llm_call"](platform="subagent", session_id="sub", parent_session_id="s1")
+hooks["post_llm_call"](platform="subagent", session_id="sub")
+assert len(oscs) == n, oscs
+# /stop in the TUI: agent_loop_stopped carries only the session key the turn recorded.
+m._keys["k1"] = "s1"
+calls.clear()
+hooks["agent_loop_stopped"](session_key="k1", platform="tui", reason="user_stop")
+assert calls[-1][0][3] == "agent.doing=stopped", calls
+m._waiting = lambda sid: "gh" if sid == "s1" else ""
+hooks["pre_llm_call"](platform="tui", session_id="s1")
+hooks["post_llm_call"](platform="tui", session_id="s1", assistant_response="Done.\n\n**Next:** your go for the `test` run.")
+assert calls[-2][0][-2] == "agent.doing=done", calls
+assert calls[-1][0] == ["hc", "label", "t9", "agent.next=your go for the test run.", "agent.needs=you", "agent.waiting=gh"], calls
+calls.clear()
+hooks["pre_llm_call"](platform="tui", session_id="s1")  # a new turn clears them
+assert calls[0][0] == ["hc", "label", "t9", "agent.next=", "agent.needs=", "agent.waiting="], calls
+m._waiting = lambda sid: ""
+
+# The Next line and whether it needs the human.
+nl = m.next_line
+assert nl("no next line here") == ("", "")
+assert nl("**Next:** I'll merge once CI is green; nothing needs you.") == ("I'll merge once CI is green; nothing needs you.", "no")
+assert nl("Next: tell me which ideas go in.") == ("tell me which ideas go in.", "you")
+assert nl("**Next:** a first one\n\nlater\n**Next:** reviewer runs, doesn't need you") == ("reviewer runs, doesn't need you", "no")
+assert nl("- __Next:__ `make check` then release") == ("make check then release", "no")
 
 # A shared gateway: the session's client env names the terminal.
 calls.clear()
