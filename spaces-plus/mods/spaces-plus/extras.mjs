@@ -87,7 +87,12 @@ export function assignPorts(listeners, folders) {
   return out;
 }
 
-export const portUrl = (p, machine) => `http://${p.host === "localhost" && machine ? machine : p.host}:${p.port}`;
+/** Whether a machine's /proc/sys/kernel/osrelease is a WSL kernel ("…-microsoft-standard-WSL2"). */
+export const isWsl = (osrelease) => /microsoft|wsl/i.test(osrelease ?? "");
+
+/** A listener's address as a URL. `localhost` on another machine becomes that machine's name, unless
+ *  `local`: its localhost is this computer's too (WSL forwards its localhost to Windows). */
+export const portUrl = (p, machine, local = false) => `http://${p.host === "localhost" && machine && !local ? machine : p.host}:${p.port}`;
 
 /** `gh pr list --json number,headRefName,state,isDraft,url` output as branch -> the newest PR from it
  *  ({ number, state, draft, url }); closed-unmerged ones are left out. */

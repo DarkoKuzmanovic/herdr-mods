@@ -16,6 +16,10 @@ a version (see [AGENTS.md](AGENTS.md#releases)).
   inside an already open tab is still not followed.
 - **Hermes integration:** On Hermes 0.23.1 and newer, a resumed tab shows its session ID as soon as it opens,
   not only after its first message.
+- **spaces-plus:** clicking a port or pull request chip did nothing in the Windows app; links now open
+  through the app itself, on every platform, without `xdg-open` or `open`.
+- **spaces-plus:** a port chip on a WSL machine opened `http://<machine name>:<port>`, which Windows
+  can't resolve; under the Windows app it now opens `http://localhost:<port>`, which WSL forwards.
 
 ## [0.8.0] - 2026-11-12
 

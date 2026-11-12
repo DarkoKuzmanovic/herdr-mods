@@ -12,7 +12,7 @@
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { spaces, machines, panes, run, openOverlay, exec, hc, theme, shared, setShared, watchFolder, window, layout, readTextFile, appHome } from "herdr";
-import { PORTS_SCRIPT, assignPorts, changedCount, ciStatus, cpuPercent, cpuTimes, duration, machineStatus, memPercent, offlineTimes, parseListeners, portUrl, prsByBranch, spaceName, tabLabel, tilde } from "./extras.mjs";
+import { PORTS_SCRIPT, assignPorts, changedCount, ciStatus, cpuPercent, cpuTimes, duration, isWsl, machineStatus, memPercent, offlineTimes, parseListeners, portUrl, prsByBranch, spaceName, tabLabel, tilde } from "./extras.mjs";
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -76,6 +76,7 @@ export default class Spaces extends View {
     this.recent = [];
     this.showSettled = false;
     this.ports = new Map(); // JSON [machine, folder] -> [{ host, port, name }]
+    this.sharesLocalhost = new Map(); // spaces-plus: machine -> true when its localhost is this computer's (WSL under a Windows app)
     this.prs = {}; // repo -> { at, branches: Map branch -> { number, state, draft, url } }
     this.load = {}; // machine ("" here) -> { prev, cpu, mem }
     this.refreshMachines(cx);
@@ -172,6 +173,11 @@ export default class Spaces extends View {
         try {
           const r = await exec("sh", ["-c", PORTS_SCRIPT], { on });
           for (const [f, list] of assignPorts(parseListeners(r.stdout), folders)) next.set(JSON.stringify([on, f]), list);
+          // spaces-plus: WSL forwards its localhost to Windows, where its Herdr name resolves nowhere.
+          // Asked once per machine: no such file (macOS, BSD) is not WSL; a rejected read is asked again.
+          if (on && !this.sharesLocalhost.has(on) && window()?.platform === "windows") {
+            try { this.sharesLocalhost.set(on, isWsl(await readTextFile("/proc/sys/kernel/osrelease", { on }))); } catch {}
+          }
         } catch {} // the machine is away: no ports shown for it
       }
       this.ports = next;
@@ -227,13 +233,6 @@ export default class Spaces extends View {
     });
   }
 
-  // A port or a pull request, in this computer's browser (xdg-open on Linux, open on macOS).
-  async open(url) {
-    for (const cmd of ["xdg-open", "open"]) {
-      try { if ((await exec(cmd, [url])).code === 0) return; } catch {}
-    }
-  }
-
   // A machine row's CPU and memory in use; red from 90%.
   loadChip(l, t, m) {
     const pct = (v) => (v === null ? "\u2014" : `${v}%`);
@@ -255,14 +254,15 @@ export default class Spaces extends View {
       const word = pr.state === "MERGED" ? "merged" : pr.draft ? "draft" : "open";
       out.push(div().id(`pr-${w.id}`).flex_none().text_color(color).hover((s) => s.text_color(t.foreground))
         .tooltip(`Pull request #${pr.number} (${word})${ci ? `\n${ci.text}` : ""}\n${pr.url}\nclick: open`)
-        .on_click((_e, cx) => { cx.stop_propagation(); this.open(pr.url); })
+        // spaces-plus: the app's own URL opener; Windows has no xdg-open or open.
+        .on_click((_e, cx) => { cx.stop_propagation(); cx.open_url(pr.url); })
         .child(`#${pr.number}`));
     }
     for (const p of this.ports.get(JSON.stringify([w.machine ?? null, place(w, ps)])) ?? []) {
-      const url = portUrl(p, w.machine ?? null);
+      const url = portUrl(p, w.machine ?? null, this.sharesLocalhost.get(w.machine) === true);
       out.push(div().id(`port-${w.id}-${p.port}`).flex_none().text_color(t.accent).hover((s) => s.text_color(t.foreground))
         .tooltip(`${p.name} listens on ${p.host}:${p.port}\nclick: open ${url}`)
-        .on_click((_e, cx) => { cx.stop_propagation(); this.open(url); })
+        .on_click((_e, cx) => { cx.stop_propagation(); cx.open_url(url); })
         .child(`:${p.port}`));
     }
     return out;

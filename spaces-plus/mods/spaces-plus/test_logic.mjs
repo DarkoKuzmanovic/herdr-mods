@@ -1,7 +1,7 @@
 // Self-check for spaces-plus' pure helpers (no window needed): node mods/spaces-plus/test_logic.mjs
 import assert from "node:assert/strict";
 import * as extras from "./extras.mjs";
-import { assignPorts, changedCount, cpuPercent, cpuTimes, duration, memPercent, parseListeners, portUrl, prsByBranch, spaceName, tabLabel, tilde } from "./extras.mjs";
+import { assignPorts, changedCount, cpuPercent, cpuTimes, duration, isWsl, memPercent, parseListeners, portUrl, prsByBranch, spaceName, tabLabel, tilde } from "./extras.mjs";
 
 assert.equal(tilde("/home/alex/code/x"), "~/code/x");
 assert.equal(changedCount("# branch.head main\n1 .M N... a b\n? new.txt\nu UU x\n2 R. y\n# branch.ab +0 -0\n"), 4);
@@ -39,6 +39,13 @@ assert.equal(ports.get("/home/alex"), undefined);
 assert.equal(portUrl({ host: "localhost", port: 5173 }, null), "http://localhost:5173");
 assert.equal(portUrl({ host: "localhost", port: 5173 }, "vps"), "http://vps:5173");
 assert.equal(portUrl({ host: "100.64.0.2", port: 9000 }, "vps"), "http://100.64.0.2:9000");
+// A WSL machine seen from a Windows app: its localhost is forwarded, its Herdr name resolves nowhere.
+assert.equal(portUrl({ host: "localhost", port: 5173 }, "dev", true), "http://localhost:5173");
+assert.equal(portUrl({ host: "172.20.1.5", port: 5173 }, "dev", true), "http://172.20.1.5:5173");
+assert.equal(isWsl("6.6.87.2-microsoft-standard-WSL2\n"), true);
+assert.equal(isWsl("4.4.0-19041-Microsoft\n"), true); // WSL1
+assert.equal(isWsl("6.8.0-45-generic\n"), false);
+assert.equal(isWsl(null), false);
 
 // Pull requests: the newest per branch; closed-unmerged ones go.
 const prs = prsByBranch(JSON.stringify([
