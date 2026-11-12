@@ -8,6 +8,8 @@ a version (see [AGENTS.md](AGENTS.md#releases)).
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-11-12
+
 ### Fixed
 
 - **Hermes integration:** A session resumed in a different terminal (`hermes --resume <id>`, or Resume in
@@ -214,7 +216,8 @@ First public release.
   OpenCode (TUI plugin), all through `integrations/bin/agent-session-label`.
 - `install.sh` (`--mods-only`, `--watch`) and the `main-plus` layout.
 
-[Unreleased]: https://github.com/DarkoKuzmanovic/herdr-mods/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/DarkoKuzmanovic/herdr-mods/compare/v0.8.1...HEAD
+[0.8.1]: https://github.com/DarkoKuzmanovic/herdr-mods/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/DarkoKuzmanovic/herdr-mods/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/DarkoKuzmanovic/herdr-mods/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/DarkoKuzmanovic/herdr-mods/compare/v0.5.0...v0.6.0
