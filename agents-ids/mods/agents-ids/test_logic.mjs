@@ -1,6 +1,6 @@
 // Self-check for agents-ids: node mods/agents-ids/test_logic.mjs
 import assert from "node:assert/strict";
-import { closeFacts, sameTerminal, doingLine, stalls, hideSession, projectOf, recentSessions, rememberSessions, resumeArgv, resumeSpace, shortSid } from "./extras.mjs";
+import { agentKey, sessionFromArgv, closeFacts, sameTerminal, doingLine, stalls, hideSession, projectOf, recentSessions, rememberSessions, reopenable, reopenSpace, reopenSummary, resumeArgv, resumeSpace, runningSids, shortSid, snapshotOf, snapshotPath, unloadRows } from "./extras.mjs";
 
 const identity = { address: "t1", state: "live", created_ms: 7, labels: { "agent.session": "one" } };
 assert.equal(sameTerminal(identity, identity), true);
@@ -100,4 +100,64 @@ assert.equal(projectOf(null, "/home/alex", null).name, "~");
 assert.equal(projectOf(null, "/", null).name, "/");
 assert.equal(projectOf(null, null, null).name, "unknown folder");
 assert.deepEqual(projectOf("vps", "/home/alex/code/acme", "/home/alex/code/acme/.git"), { key: "vps:/home/alex/code/acme", name: "vps: acme" });
+
+// Save & close: one row per known agent; unsafe when working, blocked, running work, or sharing a busy tab.
+assert.equal(agentKey("claude-code"), "claude");
+assert.equal(agentKey("__proto__"), null);
+assert.equal(snapshotPath("/home/alex", "/home/alex/.config/herdr-app"), "/home/alex/.local/state/herdr-mods/session-snapshot.json");
+assert.equal(snapshotPath("/home/alex", "/tmp/demo/home"), "/tmp/demo/home/data/herdr-mods/session-snapshot.json");
+const ag = (address, status, tab, app = "pi") => ({ address, status, tab, pane: `p-${address}`, app, space: tab === "lap/tb3" ? "lap/s2" : "s1", space_name: "acme", tab_name: "1" });
+const terms = [
+  { address: "t1", state: "live", cwd: "/home/alex/acme", labels: { "agent.app": "pi", "agent.session": "sess-0001" } },
+  { address: "t2", state: "live", labels: { "agent.doing": "running: npm test" } },
+  { address: "t3", state: "live", labels: {} },
+  { address: "t4", state: "live", labels: {} },          // a shell beside t3
+  { address: "t5", state: "live", labels: {} },
+  { address: "t6", state: "live", labels: {} },
+  { address: "lap/t1", state: "live", labels: { "agent.session": "lap-0001" } },
+  { address: "t8", state: "live", parent: "t6", labels: {} }, // t6's sub-agent
+];
+const spaceList = [{ id: "s1", machine: null, name: "acme", tabs: [{ id: "tb1", name: "fix", named: true }, { id: "tb2", name: "2", named: false }] }, { id: "lap/s2", machine: "lap", name: "notes", tabs: [{ id: "lap/tb3", name: "1", named: false }] }];
+const paneList = [{ tab: "tb2", terminal: "t3" }, { tab: "tb2", terminal: "t4" }];
+const procs = new Map([["t1", { fg: "pi", runs: [] }], ["t3", { fg: "pi", runs: [] }], ["t4", { fg: "npm run dev", runs: [] }], ["t5", { fg: "pi", runs: ["make ci-wait PR=1118", "sleep 5"] }], ["t6", { fg: "pi", runs: [] }], ["lap/t1", null]]);
+const rows = unloadRows([ag("t1", "idle", "tb1"), ag("t2", "working", "tb1"), ag("t3", "idle", "tb2"), ag("t5", "done", "tb1"), ag("t6", "idle", "tb1"), ag("t7", "idle", "tb1", "vim"), ag("lap/t1", "blocked", "lap/tb3", "hermes"), ag("t9", "idle", "tb1")],
+  [...terms, { address: "t7", state: "live", labels: {} }, { address: "t9", state: "live", labels: { "agent.app": "codex" } }], paneList, spaceList, procs);
+assert.deepEqual(rows.map((r) => [r.address, r.cause]), [
+  ["t1", null],
+  ["t2", "working: running: npm test"],
+  ["t3", "same tab: t4 runs: npm run dev"],
+  ["t5", "runs: make ci-wait PR=1118 +1"],
+  ["t6", "1 sub-agent running"],
+  ["lap/t1", "waiting for your answer"],
+  ["t9", "checking processes…"],
+]);
+assert.equal(unloadRows([ag("lap/t1", "idle", "lap/tb3", "hermes")], terms, [], spaceList, procs)[0].cause, "couldn't check processes");
+assert.deepEqual(rows[0], { address: "t1", pane: "p-t1", machine: null, space: "s1", space_name: "acme", tab: "tb1", tab_label: "fix", tab_name: "fix", folder: "/home/alex/acme",
+  app: "pi", session: "sess-0001", argv: ["pi", "--session", "sess-0001"], status: "idle", cause: null });
+assert.equal(rows[2].tab_name, null); // an automatic tab number isn't a name to restore
+const snap = snapshotOf(rows, 0);
+assert.equal(snap.saved_at, "1970-01-01T00:00:00.000Z");
+assert.deepEqual(snap.rows.map((r) => [r.address, r.resumable]), [["t1", true], ["t2", false], ["t3", false], ["t5", false], ["t6", false], ["lap/t1", true], ["t9", false]]);
+assert.deepEqual(snap.rows[5], { machine: "lap", space: "lap/s2", space_name: "acme", tab_name: null, folder: null, app: "hermes", session: "lap-0001", address: "lap/t1", argv: ["hermes", "--resume", "lap-0001"], resumable: true });
+// A reopened agent that hasn't labelled itself yet keeps its id from how it was started.
+assert.equal(sessionFromArgv("hermes", ["python3", "-c", "x", "--resume", "local-abcd1"]), "local-abcd1");
+assert.equal(sessionFromArgv("codex", ["codex", "resume", "abcd1234"]), "abcd1234");
+assert.equal(sessionFromArgv("pi", ["pi", "--session", "x; rm"]), null);
+assert.equal(sessionFromArgv("pi", undefined), null);
+assert.equal(unloadRows([ag("t30", "idle", "tb1", "hermes")], [{ address: "t30", state: "live", labels: {}, foreground: { argv: ["hermes", "--resume", "local-abcd1"] } }], [], spaceList, new Map())[0].session, "local-abcd1");
+// Reopen: skips what runs now, by label or by the id its program was started with.
+const later = [{ address: "t20", state: "live", status: "idle", labels: { "agent.session": "sess-0001" } }];
+assert.ok(runningSids(later, new Set()).has("sess-0001"));
+assert.ok(runningSids([{ address: "t21", state: "live", foreground: { argv: ["hermes", "--resume", "lap-0001"] }, labels: {} }], new Set()).has("lap-0001"));
+assert.ok(!runningSids([{ address: "t22", state: "live", argv: ["zsh", "-ic", "pi", "--session", "x-0001"], labels: { "agent.session": "y-0001" } }], new Set()).has("x-0001")); // agent quit: its shell's argv doesn't count
+assert.deepEqual(reopenable(snap, new Set()).map((r) => r.address), ["t1", "lap/t1"]);
+assert.deepEqual(reopenable(snap, runningSids(later, new Set())).map((r) => r.address), ["lap/t1"]);
+assert.deepEqual(reopenable({ rows: [{ ...snap.rows[0], app: "__proto__" }] }, new Set()), []); // the file is input too
+assert.deepEqual(reopenable(null, new Set()), []);
+const spaceNow = [{ id: "s9", machine: null, name: "acme" }, { id: "lap/s2", machine: "lap", name: "acme" }];
+assert.equal(reopenSpace(spaceNow, snap.rows[0]), "s9");          // gone by id, found by name
+assert.equal(reopenSpace(spaceNow, snap.rows[5]), "lap/s2");      // by id
+assert.equal(reopenSpace([{ id: "lap/s2", machine: "lap", name: "acme" }], snap.rows[0]), null); // another machine's space never
+assert.equal(reopenSummary([{ done: "" }, { done: "" }, { skip: "already open" }, { fail: "lap offline" }]), "Reopened 2 · skipped 1 (already open) · failed 1 (lap offline)");
+assert.equal(reopenSummary([]), "Nothing to reopen");
 console.log("ok");

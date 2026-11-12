@@ -8,6 +8,13 @@ a version (see [AGENTS.md](AGENTS.md#releases)).
 
 ## [Unreleased]
 
+### Added
+
+- **agents-ids:** Save & close sessions (Ctrl+Shift+U, or ⏏ in the Agents header): lists every agent with ✓ or ⚠
+  (working, waiting for an answer, or running a job such as a build or a test run), saves them all to a
+  snapshot and closes the tabs that are safe to close. Reopen them later with Ctrl+Shift+Alt+U or the
+  "Reopen N sessions" bar: each comes back in its space with its tab name and folder.
+
 ## [0.7.0] - 2026-11-11
 
 ### Added

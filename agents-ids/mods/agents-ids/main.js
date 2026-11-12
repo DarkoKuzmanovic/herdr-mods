@@ -4,12 +4,30 @@
 // integrations/ in github.com/DarkoKuzmanovic/herdr-mods, or by any agent: `hc label $HC_TERMINAL_ID agent.session=<id>`).
 // Ctrl-click the line: copy the session id; Shift-click: copy the address. Below the agents, "Recent
 // sessions": agents that ended in a terminal, with Resume. Merge `agents` updates via the repo's upstream branch.
-// A viewed done agent stays in Done until left.
+// A viewed done agent stays in Done until left. "Save & close sessions" (agents-ids.unload) saves every agent's
+// session to a snapshot file and closes the tabs safe to close; "Reopen" (agents-ids.load) brings them back.
 
 import { View, div, image, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { agents, terminals, panes, focused, spaces, run, theme, shared, setShared, setAgentOrder, openOverlay, closeOverlay, props, window, layout, exec, notify, playSound, appHome, readTextFile } from "herdr";
-import { closeFacts, sameTerminal, doingLine, hideSession, machineOf, projectOf, recentSessions, rememberSessions, resumeSpace, shortSid, stalls } from "./extras.mjs";
+import { agents, terminals, panes, focused, spaces, run, theme, shared, setShared, setAgentOrder, openOverlay, closeOverlay, props, window, layout, exec, notify, playSound, appHome, readTextFile, home, writeTextFile, nextCommand, machines } from "herdr";
+import { closeFacts, sameTerminal, doingLine, hideSession, machineOf, projectOf, recentSessions, rememberSessions, resumeSpace, shortSid, stalls, reopenable, reopenSpace, reopenSummary, resumeArgv, runningSids, snapshotOf, snapshotPath, unloadRows } from "./extras.mjs";
+
+// agents-ids: the snapshot is written on this computer, its folder made first.
+async function writeSnapshot(snap) {
+  const path = snapshotPath(home(), appHome());
+  const made = await exec("mkdir", ["-p", path.replace(/\/[^/]+$/, "")]);
+  if (made.code !== 0) throw new Error(made.stderr.trim() || "can't make its folder");
+  await writeTextFile(path, `${JSON.stringify(snap, null, 2)}\n`, await readTextFile(path));
+}
+
+async function readSnapshot() {
+  try {
+    const snap = JSON.parse((await readTextFile(snapshotPath(home(), appHome()))) ?? "null");
+    return Array.isArray(snap?.rows) ? snap : null;
+  } catch {
+    return null;
+  }
+}
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -94,6 +112,7 @@ export default class Agents extends View {
       return;
     }
     if (props()?.sortMenu) return;
+    if (props()?.unload) return this.initUnload(cx); // agents-ids
     this.folded = new Set();
     // agents-ids: each folder's git common dir (null: not a repo, or not asked yet), for "Grouped by project".
     // shortcut: never re-asked, so a folder that becomes a repo later groups by folder until restart.
@@ -107,6 +126,15 @@ export default class Agents extends View {
     // Agent sessions seen in a terminal (sid -> where, when), for Recent sessions.
     this.remembered = JSON.parse(localStorage.getItem("sessions") ?? "{}");
     cx.timer.every(30000, (cx) => cx.notify());
+    // agents-ids: keys for Save & close / Reopen.
+    cx.spawn(async (cx) => {
+      for (;;) {
+        const c = await nextCommand();
+        if (c === "unload") this.toggleUnload();
+        else if (c === "load") this.reopen(cx);
+        cx.notify();
+      }
+    });
   }
 
   // Stamps agents whose state changed. Done and idle count as one: looking at a
@@ -387,10 +415,190 @@ export default class Agents extends View {
     openOverlay({ mod: "agents-ids", kind: "dialog", width: 380, height: 255, props: { closeTarget: address, identity } });
   }
 
+  // agents-ids: "Save & close sessions": a dialog copy of this mod; the key toggles it.
+  toggleUnload() {
+    const open = shared("agents-ids.unload");
+    if (open) {
+      closeOverlay(open);
+      setShared("agents-ids.unload", null);
+    } else openOverlay({ mod: "agents-ids", kind: "dialog", width: 680, height: 480, props: { unload: true } });
+  }
+
+  initUnload(cx) {
+    this.handle = cx.focus_handle();
+    this.handle.focus();
+    setShared("agents-ids.unload", props().overlay);
+    this.procs = new Map(); // address -> procs.py's {fg, runs}; null: couldn't check
+    // Agents, and the other terminals in their tabs (closing a tab ends those too), by machine.
+    const ag = agents();
+    const tabs = new Set(ag.map((a) => a.tab));
+    const want = new Set([...ag.map((a) => a.address), ...panes().filter((p) => tabs.has(p.tab) && p.terminal).map((p) => p.terminal)]);
+    const byMachine = new Map();
+    for (const k of terminals().filter((k) => want.has(k.address))) {
+      if (!k.pid) { this.procs.set(k.address, null); continue; }
+      const m = machineOf(k.address);
+      byMachine.set(m, [...(byMachine.get(m) ?? []), k]);
+    }
+    for (const [on, list] of byMachine) {
+      cx.spawn(async (cx) => {
+        let out = {};
+        try {
+          const script = await readTextFile(`${appHome()}/mods/agents-ids/procs.py`);
+          const res = await exec("python3", ["-c", script, ...list.map((k) => String(k.pid))], { on, timeout: 15000 });
+          if (res.code === 0) out = JSON.parse(res.stdout);
+        } catch {}
+        for (const k of list) this.procs.set(k.address, out[String(k.pid)] ?? null);
+        cx.notify();
+      });
+    }
+  }
+
+  async close() {
+    if (props()?.unload) setShared("agents-ids.unload", null); // agents-ids
+  }
+
+  // agents-ids: save every row to the snapshot, then close the tabs of `which` rows ("safe", "all", "none").
+  save(which, cx) {
+    const rows = this.unloadRows;
+    cx.spawn(async (cx) => {
+      const snap = snapshotOf(rows, Date.now());
+      try {
+        await writeSnapshot(snap);
+      } catch (e) {
+        this.unloadError = `Not saved, nothing closed: ${e?.message ?? e}`;
+        cx.notify();
+        return;
+      }
+      const tabs = which === "none" ? [] : [...new Set(rows.filter((r) => which === "all" || !r.cause).map((r) => r.tab))];
+      for (const id of tabs) run("tab.close", { id, confirmed: true });
+      setShared("agents-ids.snapshot", snap.saved_at);
+      const kept = rows.filter((r) => !tabs.includes(r.tab)).length;
+      notify({ title: `Saved ${rows.length} session${rows.length === 1 ? "" : "s"}`, body: `${tabs.length ? `Closed ${tabs.length} tab${tabs.length === 1 ? "" : "s"}` : "Nothing closed"}${kept ? ` · ${kept} still open` : ""}`, level: "success" });
+      closeOverlay(props().overlay);
+    });
+  }
+
+  unloadPanel(t) {
+    const p = props();
+    const rows = (this.unloadRows = unloadRows(agents(), terminals(), panes(), spaces(), this.procs));
+    const safe = rows.filter((r) => !r.cause);
+    const risky = rows.filter((r) => r.cause);
+    const button = (id, text, primary, click) => div().id(id).px(14).h(32).rounded(8).flex().items_center().flex_none()
+      .bg(primary ? t.solid : t.raised).text_color(primary ? t.solid_foreground : t.foreground)
+      .hover((s) => s.bg(primary ? t.solid : t.hover)).on_click(click).child(text);
+    const row = (r) => h_flex().id(`un-${r.address}`).px(8).py(5).gap(9).rounded(7).flex_none().items_center()
+      .hover((s) => s.bg(t.hover)).cursor_pointer()
+      .on_click(() => { closeOverlay(p.overlay); run("agent.focus", { terminal: r.address }); })
+      .child(div().w(14).flex_none().text_color(r.cause ? t.blocked : t.done).child(r.cause ? "\u26a0" : "\u2713"))
+      .child(v_flex().flex_1().min_w(0)
+        .child(h_flex().gap(7).min_w(0)
+          .child(div().flex_none().text_color(t.foreground).child(`${r.machine ? `${r.machine}: ` : ""}${r.space_name} / ${r.tab_label}`))
+          .child(div().flex_none().text_color(t.muted).child(r.app))
+          .child(div().flex_1().min_w(0).truncate().text_color(t.dim).child(r.folder ? r.folder.replace(/\/+$/, "").split("/").pop() : ""))
+          .child(div().flex_none().text_size(11).text_color(t.dim).child(r.argv ? r.status : `${r.status} \u00b7 no session id`)))
+        .when(Boolean(r.cause), (el) => el.child(div().truncate().text_size(11.5).text_color(t.blocked).child(r.cause))));
+    const confirm = this.confirmAll;
+    return v_flex().id("unload").track_focus(this.handle).size_full().p(16).gap(10).bg(t.popover).text_size(12.5)
+      .on_key_down((e, cx) => {
+        if (e.key === "escape") { if (confirm) { this.confirmAll = false; cx.notify(); } else closeOverlay(p.overlay); cx.stop_propagation(); }
+        else if (e.key === "enter" && !confirm) { this.save("safe", cx); cx.stop_propagation(); }
+      })
+      .child(div().text_size(15).font_semibold().text_color(t.foreground).child(confirm ? "Close busy tabs too?" : "Save & close sessions"))
+      .child(div().text_size(12).text_color(t.muted).child(confirm
+        ? "These are still doing something. Closing their tabs ends it:"
+        : "Every session below is saved; reopen them later with Ctrl+Shift+Alt+U or the bar in Agents. \u2713 tabs are safe to close."))
+      .child(v_flex().id("unload-rows").flex_1().min_h(0).overflow_y_scrollbar()
+        .children((confirm ? risky : rows).map(row))
+        .when(!rows.length, (el) => el.child(div().p(8).text_color(t.dim).child("No agents running."))))
+      .when(Boolean(this.unloadError), (el) => el.child(div().text_size(12).text_color(t.blocked).child(this.unloadError)))
+      .child(h_flex().justify_end().gap(8).flex_none()
+        .when(confirm, (el) => el
+          .child(button("unload-back", "Back", false, (_e, cx) => { this.confirmAll = false; cx.notify(); }))
+          .child(button("unload-all-yes", `Save & close all ${rows.length}`, true, (_e, cx) => this.save("all", cx))))
+        .when(!confirm, (el) => el
+          .child(button("unload-only", "Save only", false, (_e, cx) => this.save("none", cx)))
+          .child(button("unload-all", "Save & close all", false, (_e, cx) => {
+            if (risky.length) { this.confirmAll = true; cx.notify(); } else this.save("all", cx);
+          }))
+          .child(button("unload-safe", `Save & close ${safe.length} safe`, true, (_e, cx) => this.save("safe", cx)))));
+  }
+
+  // agents-ids: the snapshot file, read again whenever a save says it changed.
+  loadSnapshot(cx) {
+    cx.spawn(async (cx) => {
+      this.snapshot = await readSnapshot();
+      cx.notify();
+    });
+  }
+
+  reopenBar(t, all, cx) {
+    const at = shared("agents-ids.snapshot") ?? "";
+    if (this.snapshotSeen !== at) { this.snapshotSeen = at; this.loadSnapshot(cx); }
+    const snap = this.snapshot;
+    if (!snap || localStorage.getItem("snapshotDismissed") === snap.saved_at) return null;
+    const n = reopenable(snap, runningSids(all, this.listed)).length;
+    if (!n) return null;
+    const when = new Date(snap.saved_at);
+    const hhmm = Number.isNaN(when.getTime()) ? "?" : `${String(when.getHours()).padStart(2, "0")}:${String(when.getMinutes()).padStart(2, "0")}`;
+    return h_flex().id("reopen-bar").mt(6).px(8).h(28).flex_none().rounded(8).gap(6).items_center().text_size(12)
+      .bg(t.accent + "1f").text_color(t.accent).cursor_pointer().hover((s) => s.bg(t.accent + "3d"))
+      .tooltip("Reopen the saved sessions in their spaces (Ctrl+Shift+Alt+U)")
+      .on_click((_e, cx) => this.reopen(cx))
+      .child(div().flex_1().min_w(0).truncate().child(`Reopen ${n} session${n === 1 ? "" : "s"} (saved ${hhmm})`))
+      .child(this.xButton(t, "reopen-dismiss", "Hide until the next save", (cx) => {
+        localStorage.setItem("snapshotDismissed", snap.saved_at);
+        cx.notify();
+      }));
+  }
+
+  // agents-ids: reopens each saved session in a new tab of its space (by id, else by name, on its machine;
+  // a new space when it's gone), argv only. Sessions running now are skipped, so twice opens nothing new.
+  reopen(cx) {
+    if (this.reopening) return;
+    this.reopening = true;
+    cx.spawn(async (cx) => {
+      const snap = await readSnapshot();
+      if (!snap) {
+        this.reopening = false;
+        return notify({ title: "No saved sessions", body: "Save some first: Ctrl+Shift+U", level: "info" });
+      }
+      const results = [];
+      const opened = new Set();
+      for (const r of snap.rows) {
+        const argv = r.resumable ? resumeArgv(r.app, r.session) : null;
+        if (!argv) { results.push({ skip: "no id" }); continue; }
+        if (opened.has(r.session) || runningSids(terminals(), new Set(agents().map((a) => a.address))).has(r.session)) { results.push({ skip: "already open" }); continue; }
+        const on = r.machine ?? null;
+        const where = on ?? "this computer";
+        if (on && machines().find((m) => m.name === on)?.layout !== "ready") { results.push({ fail: `${on} offline` }); continue; }
+        let folder;
+        try {
+          if (r.folder) folder = (await exec("test", ["-d", r.folder], { on })).code === 0 ? r.folder : undefined;
+          const space = reopenSpace(spaces(), r);
+          const name = r.tab_name ? { name: r.tab_name } : {};
+          if (space) run("tab.new", { space, folder, argv, ...name });
+          else {
+            run("space.new", { name: r.space_name, folder, argv, machine: on ?? "", ...(r.tab_name ? { tab: r.tab_name } : {}) });
+            // The next row of this space goes into it, not into a second new one.
+            for (let i = 0; i < 30 && !reopenSpace(spaces(), r); i++) await exec("sleep", ["0.1"]);
+          }
+          opened.add(r.session);
+          results.push({ done: "" });
+        } catch (e) {
+          results.push({ fail: /unreach|offline|connect/i.test(String(e)) ? `${where} offline` : String(e?.message ?? e).slice(0, 60) });
+        }
+      }
+      this.reopening = false;
+      notify({ title: reopenSummary(results), level: results.some((x) => "fail" in x) ? "warning" : "success" });
+      cx.notify();
+    });
+  }
+
   render(cx) {
     const t = theme();
     if (props()?.closeTarget) return this.closeDialog(t);
     if (props()?.sortMenu) return this.sortMenu(t);
+    if (props()?.unload) return this.unloadPanel(t); // agents-ids
     const collapsed = narrow();
     const sort = sortOf();
     let list = agents();
@@ -632,6 +840,9 @@ export default class Agents extends View {
       .cursor_pointer().hover((s) => s.text_color(t.foreground))
       .on_click((_e, cx) => { this.recentAll = !this.recentAll; cx.notify(); })
       .child(this.recentAll ? "Show less" : `Show ${recent.length - 5} more`);
+    // agents-ids: "Reopen N sessions" while a snapshot has sessions not running now.
+    const bar = collapsed ? null : this.reopenBar(t, all, cx);
+    if (bar) rows.unshift(bar);
     if (recent.length) rows.push(header({ id: "recent", label: "Recent sessions", status: null, members: recent, clear: (cx) => this.hide(recent.map((r) => r.sid), cx) }),
       ...(this.folded.has("recent") ? [] : [...recentShown.map((r) => this.recentRow(t, r)), ...(recent.length > 5 ? [toggle()] : [])]));
 
@@ -653,6 +864,9 @@ export default class Agents extends View {
             .items_center()
             .justify_between()
             .child(div().text_size(11.5).font_medium().text_color(t.dim).child("Agents"))
+            .child(h_flex().gap(10).items_center().child(div() // agents-ids: Save & close sessions
+              .id("ag-unload").text_size(12).text_color(t.dim).hover((s) => s.text_color(t.foreground))
+              .on_click(() => this.toggleUnload()).tooltip("Save & close sessions (Ctrl+Shift+U)").child("\u23cf"))
             .child(
               div()
                 .id("ag-sort")
@@ -662,7 +876,7 @@ export default class Agents extends View {
                 .on_click(() => openOverlay({ mod: "agents-ids", kind: "popup", width: 200, height: 140, props: { sortMenu: true } }))
                 .tooltip(`Sort agents: ${sort.label}`)
                 .child(svg(`mods/workspace-chrome/${sort.icon}.svg`).size(14)),
-            ),
+            )),
         ),
       )
       .when(list.length === 0 && !collapsed, (el) =>
