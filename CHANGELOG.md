@@ -11,6 +11,7 @@ a version (see [AGENTS.md](AGENTS.md#releases)).
 ### Added
 
 - **agents-ids:** key command `agents-ids.sort` opens the sort and status icons menu.
+- **agents-ids:** a fifth status icon set, **Badges**.
 
 ## [0.10.0] - 2026-11-13
 

@@ -326,6 +326,7 @@ export const ICON_SETS = [
   { id: "default", label: "Default" },
   { id: "rings", label: "Rings", spin: true, icons: { working: "loader-circle", blocked: "circle-alert", asks: "circle-question-mark", waiting: "circle-dashed", idle: "circle", done: "circle-check" } },
   { id: "signs", label: "Signs", icons: { working: "activity", blocked: "octagon-alert", asks: "message-circle-question-mark", waiting: "hourglass", idle: "moon", done: "check" } },
+  { id: "badges", label: "Badges", spin: true, icons: { working: "badge-spinner", blocked: "badge-alert", asks: "badge-question-mark", waiting: "badge-clock", idle: "badge", done: "badge-check" } },
   { id: "who", label: "Who", icons: { working: "bot", blocked: "hand", asks: "user-round", waiting: "alarm-clock", idle: "coffee", done: "check-check" } },
 ];
 export const iconSet = (id) => ICON_SETS.find((s) => s.id === id) ?? ICON_SETS[0];

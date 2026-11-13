@@ -78,7 +78,7 @@ const SORTS = [
   { id: "project", label: "Grouped by project", icon: "folder" }, // agents-ids
 ];
 // agents-ids: also the key command agents-ids.sort (the demo opens it for its screenshot).
-const openSortMenu = () => openOverlay({ mod: "agents-ids", kind: "popup", width: 250, height: 310, props: { sortMenu: true } });
+const openSortMenu = () => openOverlay({ mod: "agents-ids", kind: "popup", width: 250, height: 341, props: { sortMenu: true } });
 const sortOf = () => SORTS.find((s) => s.id === shared("agents.sort")) ?? SORTS[0];
 const SECTION = { 4: "Needs you", 3: "Done", 2: "Working", 1.5: "Waiting", 1: "Idle" };
 const SECTION_STATUS = { 4: "blocked", 3: "done", 2: "working" };

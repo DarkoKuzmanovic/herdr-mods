@@ -26,7 +26,7 @@ case "$WAYLAND" in /*) ;; *) WAYLAND="$REAL_RUNTIME/${WAYLAND:-wayland-0}" ;; es
 # The mouse pointer counts: resting on the window, it hovers a row or opens a tooltip in the shot.
 CROP_SPACES="${CROP_SPACES:-0 56 296 290}"
 CROP_AGENTS="${CROP_AGENTS:-0 690 296 1225}"
-CROP_MENU="${CROP_MENU:-0 0 292 340}"
+CROP_MENU="${CROP_MENU:-0 0 292 372}"
 CROP_SYSSTAT="${CROP_SYSSTAT:-2960 1370 3410 1406}"
 CROP_USAGE="${CROP_USAGE:-2850 1370 2960 1406}"
 
