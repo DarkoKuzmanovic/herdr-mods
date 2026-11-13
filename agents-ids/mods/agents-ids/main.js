@@ -77,6 +77,8 @@ const SORTS = [
   { id: "grouped", label: "Grouped by space", icon: "layers" },
   { id: "project", label: "Grouped by project", icon: "folder" }, // agents-ids
 ];
+// agents-ids: also the key command agents-ids.sort (the demo opens it for its screenshot).
+const openSortMenu = () => openOverlay({ mod: "agents-ids", kind: "popup", width: 250, height: 310, props: { sortMenu: true } });
 const sortOf = () => SORTS.find((s) => s.id === shared("agents.sort")) ?? SORTS[0];
 const SECTION = { 4: "Needs you", 3: "Done", 2: "Working", 1.5: "Waiting", 1: "Idle" };
 const SECTION_STATUS = { 4: "blocked", 3: "done", 2: "working" };
@@ -138,6 +140,7 @@ export default class Agents extends View {
         const c = await nextCommand();
         if (c === "unload") this.toggleUnload();
         else if (c === "load") this.reopen(cx);
+        else if (c === "sort") openSortMenu();
         cx.notify();
       }
     });
@@ -1038,7 +1041,7 @@ export default class Agents extends View {
                 .text_size(11)
                 .text_color(t.dim)
                 .hover((s) => s.text_color(t.foreground))
-                .on_click(() => openOverlay({ mod: "agents-ids", kind: "popup", width: 250, height: 310, props: { sortMenu: true } }))
+                .on_click(() => openSortMenu())
                 .tooltip(`Sort agents: ${sort.label} \u00b7 status icons`)
                 .child(svg(`mods/workspace-chrome/${sort.icon}.svg`).size(14)),
             )),

@@ -8,6 +8,10 @@ a version (see [AGENTS.md](AGENTS.md#releases)).
 
 ## [Unreleased]
 
+### Added
+
+- **agents-ids:** key command `agents-ids.sort` opens the sort and status icons menu.
+
 ## [0.10.0] - 2026-11-13
 
 ### Added

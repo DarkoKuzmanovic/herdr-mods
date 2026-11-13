@@ -22,6 +22,7 @@ integrations that make coding agents report their session IDs to it:
 | `layout/main-plus.json` | Herdr's `main` layout with the three mods (installed, not listed) |
 | `scripts/demo.sh` | Isolated demo window for screenshots |
 | `docs/window.png` | The README's whole-window screenshot |
+| `docs/sort-menu.png` | The README's shot of the Agents sort and status icons menu |
 | `tests/` | Self-checks for the Python pieces |
 
 Each mod is one folder in the shape herdr.dev indexes (repo topic `herdr-mod`): `<name>/RECIPE.md`
@@ -97,7 +98,9 @@ PR or report which clicks you did not try. Probe spaces (`herdr-app do space.new
 
 ## Screenshots
 
-`scripts/demo.sh start`, then `scripts/demo.sh shot`, then `scripts/demo.sh stop`. It runs a second
+`scripts/demo.sh start`, then `scripts/demo.sh shot`, then `scripts/demo.sh stop`. The demo wears your theme and fonts
+(copied from your `settings.json`), groups agents by space, and seeds Recent sessions; on several screens,
+move its window to the one the crop boxes fit before `shot`. It runs a second
 herdr-app on its own herdr-core (`XDG_RUNTIME_DIR`, `XDG_STATE_HOME`, `XDG_DATA_HOME`,
 `HERDR_APP_HOME` all moved), so your real spaces and agents never show up and can't be closed by it.
 Never publish a shot of your real window. The crop boxes at the top of the script fit a 3440x1440

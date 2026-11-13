@@ -18,7 +18,8 @@ search over every past session, and the markdown files an agent just wrote, one 
 | [**copy-on-select**](copy-on-select/RECIPE.md) | Shift-drag a selection in any terminal and it's copied once the pointer settles, with a *Copied* toast. Plain drags copy nothing. Linux-friendly: no OS helper. |
 
 <p>
-  <img src="agents-ids/preview.png" alt="Agents list with terminal addresses, session IDs and recent sessions to resume" height="260">
+  <img src="agents-ids/preview.png" alt="Agents grouped by space with task titles, session IDs, a running command, a Your turn pill with its Next line, and recent sessions to resume" height="535">
+  <img src="docs/sort-menu.png" alt="The Agents sort menu: Priority, Grouped by space, Grouped by project, and four status icon sets" height="340">
   <img src="spaces-plus/preview.png" alt="Spaces list with git changes, a pull request badge and a port" height="234">
 </p>
 
@@ -51,7 +52,7 @@ itself the first time Herdr sees it).
 `sessions` opens as a dialog; bind a key to it in `~/.config/herdr-app/keys.json` (the installer
 doesn't touch your keys): `"ctrl-shift-s": "mod.open:sessions"`. `md-open` the same way, e.g.
 `"alt-o": "mod.open:md-open"`. `agents-ids`' Save & close sessions and Reopen are key commands:
-`"ctrl-shift-u": "agents-ids.unload"`, `"ctrl-shift-alt-u": "agents-ids.load"`.
+`"ctrl-shift-u": "agents-ids.unload"`, `"ctrl-shift-alt-u": "agents-ids.load"`; `agents-ids.sort` opens the sort menu.
 
 `usage` shows nothing until you give it a command in its layout block's props:
 

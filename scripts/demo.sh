@@ -25,7 +25,8 @@ case "$WAYLAND" in /*) ;; *) WAYLAND="$REAL_RUNTIME/${WAYLAND:-wayland-0}" ;; es
 # (a 3440x1406 shot) at one zoom step; `shot` prints the shot's size, so adjust these when yours differs.
 # The mouse pointer counts: resting on the window, it hovers a row or opens a tooltip in the shot.
 CROP_SPACES="${CROP_SPACES:-0 56 296 290}"
-CROP_AGENTS="${CROP_AGENTS:-0 690 296 950}"
+CROP_AGENTS="${CROP_AGENTS:-0 690 296 1225}"
+CROP_MENU="${CROP_MENU:-0 0 292 340}"
 CROP_SYSSTAT="${CROP_SYSSTAT:-2960 1370 3410 1406}"
 CROP_USAGE="${CROP_USAGE:-2850 1370 2960 1406}"
 
@@ -88,6 +89,8 @@ while :; do sleep 60; done
 AGENT
   chmod +x "$DEMO/bin/pi"
   cp "$DEMO/bin/pi" "$DEMO/bin/claude"
+  sed 's/state=working/state=done/' "$DEMO/bin/pi" >"$DEMO/bin/pi-done"
+  chmod +x "$DEMO/bin/pi-done"
 }
 
 # space <name> <folder> [argv json]: a space whose first terminal runs argv (a shell by default).
@@ -116,6 +119,24 @@ json.dump(ours, open(path, "w"), indent=2)
 theme = f"{real}/themes/{mine.get('theme')}.json"
 if os.path.exists(theme):
     shutil.copy(theme, f"{demo}/themes/")
+PY
+  # Grouped by space, as most people run it; and a few ended sessions for Recent sessions with Resume.
+  python3 - "$HERDR_APP_HOME" "$DEMO/work" <<'PY'
+import json, os, sys, time
+home, work = sys.argv[1:]
+path = f"{home}/shared.json"
+shared = json.load(open(path)) if os.path.exists(path) else {}
+shared["agents.sort"] = "grouped"
+json.dump(shared, open(path, "w"), indent=2)
+os.makedirs(f"{home}/data/agents-ids", exist_ok=True)
+store_path = f"{home}/data/agents-ids/store.json"
+store = json.load(open(store_path)) if os.path.exists(store_path) else {}
+now = int(time.time() * 1000)
+ended = [("claude", "3f9c2a1e-7d4b-4c8e-9a01-5b6d7e8f9a0b", "acme-api", 12), ("pi", "b81e0d47-2c3a-4f5e-8d9c-1a2b3c4d5e6f", "web-dashboard", 95),
+         ("codex", "0198a7c2-4e5f-7a6b-9c8d-e1f2a3b4c5d6", "docs-site", 300), ("pi", "c4d5e6f7-8a9b-4c0d-9e1f-2a3b4c5d6e7f", "acme-api", 540)]
+store["sessions"] = json.dumps({sid: {"sid": sid, "app": app, "address": f"t{9 + i}", "cwd": f"{work}/{folder}", "space": "", "seen": now - mins * 60000}
+                                for i, (app, sid, folder, mins) in enumerate(ended)})
+json.dump(store, open(store_path, "w"))
 PY
   if ! herdr-app status >/dev/null 2>&1; then
     setsid herdr-app >"$DEMO/app.log" 2>&1 </dev/null &
@@ -164,14 +185,29 @@ PY
     space acme-api "$w/acme-api" "[\"$DEMO/bin/pi\"]"
     space search "$w/acme-api/.worktrees/search" "[\"$DEMO/bin/claude\"]"
     space web-dashboard "$w/web-dashboard" '["python3","-m","http.server","5173","--bind","127.0.0.1"]'
-    space docs-site "$w/docs-site" "[\"$DEMO/bin/pi\"]"
+    space docs-site "$w/docs-site" "[\"$DEMO/bin/pi-done\"]"
   fi
   # A stale working example exercises the activity line without a real agent.
   local agent
   agent="$(hc ls --json | python3 -c 'import json,sys; print(next((t["address"] for t in json.load(sys.stdin)["terminals"] if t.get("cwd") == sys.argv[1]), ""))' "$w/acme-api")"
   if [ -n "$agent" ]; then
-    hc label "$agent" agent.session=demo-session agent.app=pi 'agent.doing=running: npm test' "agent.doing.since=$(($(date +%s) - 2400))" >/dev/null
+    hc label "$agent" agent.session=7c2e9f41-3b8a-4d6e-a5f0-9e1d2c3b4a59 agent.app=pi 'agent.doing=running: npm test' "agent.doing.since=$(($(date +%s) - 2400))" >/dev/null
   fi
+  agent="$(hc ls --json | python3 -c 'import json,sys; print(next((t["address"] for t in json.load(sys.stdin)["terminals"] if t.get("cwd") == sys.argv[1]), ""))' "$w/acme-api/.worktrees/search")"
+  [ -n "$agent" ] && hc label "$agent" agent.session=2d8b4f6a-1c3e-4a5b-8d7f-0e9c1b2a3d4e agent.app=claude >/dev/null
+  # A finished agent whose Next line asks for you: the Your turn pill.
+  agent="$(hc ls --json | python3 -c 'import json,sys; print(next((t["address"] for t in json.load(sys.stdin)["terminals"] if t.get("cwd") == sys.argv[1]), ""))' "$w/docs-site")"
+  if [ -n "$agent" ]; then
+    hc label "$agent" agent.session=e5a1b7c3-9d2f-4e8a-b6c0-1f3e5d7a9b2c agent.app=pi 'agent.next=review the FAQ draft, then I publish it' agent.needs=you >/dev/null
+  fi
+  # Tab titles name each agent's task, as agents name their own tabs.
+  herdr-app ls | python3 -c '
+import json, subprocess, sys
+titles = {"acme-api": "Fix the flaky auth tests", "search": "Build the search endpoint", "docs-site": "Write the FAQ page"}
+for s in json.load(sys.stdin)["spaces"]:
+    if s["name"] in titles and s["tabs"]:
+        subprocess.run(["herdr-app", "do", "tab.rename", json.dumps({"id": s["tabs"][0]["id"], "name": titles[s["name"]]})], stdout=subprocess.DEVNULL)
+'
   # Show web-dashboard: its terminal is the demo server, nothing from your own agent setup.
   do_ space.select '{"index":3}'
   echo "Demo window up; fake agents are working. Wait ~10 s for ports and the PR badge, then: scripts/demo.sh shot"
@@ -208,6 +244,12 @@ for mod, box in zip(["spaces-plus", "agents-ids", "sysstat", "usage"], crops):
     im.crop(tuple(int(v) for v in box.split())).save(f"{repo}/{mod}/preview.png")
     print(f"  {mod}/preview.png <- {box}")
 PY
+  # The sort menu with its status icon sets; opened by key command, so it sits at the window's top left.
+  do_ agents-ids.sort; sleep 1
+  herdr-app shot "$DEMO/menu.png" >/dev/null
+  do_ overlay.close
+  python3 -c 'import sys; from PIL import Image; Image.open(sys.argv[1]).crop(tuple(map(int, sys.argv[3].split()))).save(sys.argv[2])' "$DEMO/menu.png" "$REPO/docs/sort-menu.png" "$CROP_MENU"
+  echo "  docs/sort-menu.png <- $CROP_MENU"
 }
 
 stop() {
