@@ -8,6 +8,8 @@ a version (see [AGENTS.md](AGENTS.md#releases)).
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-13
+
 ### Added
 
 - **agents-ids:** an agent's third line (Next, waiting, doing) that is too long for the panel runs as a ticker while the pointer is on its row.
@@ -245,7 +247,8 @@ First public release.
   OpenCode (TUI plugin), all through `integrations/bin/agent-session-label`.
 - `install.sh` (`--mods-only`, `--watch`) and the `main-plus` layout.
 
-[Unreleased]: https://github.com/DarkoKuzmanovic/herdr-mods/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/DarkoKuzmanovic/herdr-mods/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/DarkoKuzmanovic/herdr-mods/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/DarkoKuzmanovic/herdr-mods/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/DarkoKuzmanovic/herdr-mods/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/DarkoKuzmanovic/herdr-mods/compare/v0.7.0...v0.8.0
