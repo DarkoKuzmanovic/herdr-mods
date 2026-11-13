@@ -1,4 +1,4 @@
-import { View, div } from "gpui-kit";
+import { View, div, svg } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { exec, props, theme } from "herdr";
 import { parse, busiest, tooltip } from "./logic.mjs";
@@ -40,6 +40,7 @@ export default class Usage extends View {
     const tip = [this.providers && tooltip(this.providers), this.error && `Update failed: ${this.error}`].filter(Boolean).join("\n");
     return h_flex().id("usage").size_full().bg(t.chrome).border_t(1).border_color(t.border).items_center().text_size(11.8)
       .when(Boolean(this.command), (el) => el.px(14).gap(6).tooltip(tip || "Loading usage…")
+        .child(svg("mods/usage/gauge.svg").size(13).flex_none().text_color(t.muted))
         .child(div().text_color(best?.percent >= 90 ? t.blocked : t.muted).child(best ? `${best.id} ${best.percent}%` : "usage —"))
         .when(Boolean(this.error), (el) => el.child(div().text_color(t.dim).child("!"))));
   }

@@ -10,7 +10,13 @@ a version (see [AGENTS.md](AGENTS.md#releases)).
 
 ### Added
 
-- **agents-ids:** an agent's third line (Next, waiting, doing) that is too long for the panel runs as a ticker while the pointer is on it.
+- **agents-ids:** an agent's third line (Next, waiting, doing) that is too long for the panel runs as a ticker while the pointer is on its row.
+- **agents-ids:** pick the status icons in the sort menu (top right of Agents): Default, Rings, Signs or Who (Lucide icons).
+
+### Changed
+
+- **agents-ids:** Save & close sessions has a box icon instead of ⏏.
+- **usage:** a gauge icon in front of the quota, like the status bar's other items.
 
 ## [0.9.0] - 2026-11-12
 

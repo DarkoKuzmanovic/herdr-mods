@@ -33,6 +33,18 @@ else the `agent.doing` line. The row's status follows: `agent.needs=you` with a 
 *waiting*, a clock icon in its own **Waiting** section after Working. A running or blocked agent always
 shows Herdr's own status.
 
+A third line too long for the row runs as a **ticker** while the pointer is on the row: after a second it
+slides left at about 55 px/s, two copies 40 px apart, natively (`.transition("left")`; one timer per lap puts
+a fresh element id back at 0, which looks the same). A mod can't measure text before drawing it, so the line
+and text widths come from `on_mouse_move` bounds; the lap time reads them when it starts, not at the first
+render. The line's own hover can't drive it (the sliding text ends it), so the row's does.
+
+**Status icons**: below the sort choices the sort menu has a *Status icons* section, each choice previewed
+with its six states: **Default** (the marks above), **Rings**, **Signs** and **Who**, Lucide icons shipped in
+`mods/agents-ids/icons/` (ISC, its `LICENSE` beside them) and listed in `ICON_SETS` in `extras.mjs`. The pick
+is `shared("agents-ids.icons")`. A set replaces the spinner, the compact `!`/`?`, the clock, the ring and the
+dot (12px, the status colors; Rings' working icon spins); the *Needs you* and *Your turn* pills stay.
+
 **Herds**: a live terminal on this computer with `agent.lead=<t>` naming another live one is that lead's
 herd member. A lead row gets a line `herd · 3 working · 1 needs you · 1 done`. In Priority view members
 leave their own place and nest under the lead (one level, tree lines like sub-agents, folding with its
@@ -41,7 +53,7 @@ project with a `↳ <lead>` chip that focuses the lead; a member whose lead is g
 with `agent.brief` shows the brief's short name (no date prefix or extension); a click opens it, markdown
 in `fresh` in a split beside the member like md-open, anything else with `cx.open_url`.
 
-**Send to several**: a pen icon left of `⏏` turns picking on. Each row gets a check box and a click picks it
+**Send to several**: a pen icon left of the box icon turns picking on. Each row gets a check box and a click picks it
 (never focusing or typing); a bar at the bottom says `To t5, t7`, holds an input and Cancel / `Send to N`
 (Enter sends). Per picked agent: `hc read` its screen, find its input box (Hermes only for now: the last
 line, `❯`, right under its status bar; anything else, such as a multi-line draft, counts as unreadable), and
@@ -77,7 +89,7 @@ folder if that still exists. It never types into the old terminal, which may hol
 until it runs again.
 
 **Save & close sessions**, the command `agents-ids.unload` (bind `ctrl-shift-u`; pressing it again closes
-it) or a `⏏` (12px, `dim`) left of the sort icon in the header, tooltip "Save & close sessions (Ctrl+Shift+U)":
+it) or the box icon (`workspace-chrome/archive.svg`, 13px, `dim`) left of the sort icon in the header, tooltip "Save & close sessions (Ctrl+Shift+U)":
 a dialog (680x480, `popover`) of the same mod (`props: { unload: true }`; its overlay id kept in
 `shared("agents-ids.unload")` so the key closes it, cleared in `close()`). One row per terminal whose agent is
 Hermes, Claude Code, Codex, Pi, PiG or OpenCode, on every machine: `✓` (`done` color) or `⚠` (`blocked`),

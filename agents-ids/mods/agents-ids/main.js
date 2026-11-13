@@ -10,7 +10,7 @@
 import { View, div, image, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
 import { agents, terminals, panes, focused, spaces, run, theme, shared, setShared, setAgentOrder, openOverlay, closeOverlay, props, window, layout, exec, notify, playSound, appHome, readTextFile, home, writeTextFile, nextCommand, machines } from "herdr";
-import { briefName, closeFacts, effStatus, herds, herdSummary, inputBox, sameTerminal, thirdLine, hideSession, machineOf, projectOf, recentSessions, rememberSessions, resumeSpace, shortSid, stalls, reopenable, reopenSpace, reopenSummary, resumeArgv, runningSids, snapshotOf, snapshotPath, unloadRows } from "./extras.mjs";
+import { briefName, closeFacts, effStatus, herds, herdSummary, inputBox, sameTerminal, thirdLine, hideSession, machineOf, projectOf, recentSessions, rememberSessions, resumeSpace, shortSid, stalls, reopenable, reopenSpace, reopenSummary, resumeArgv, runningSids, snapshotOf, snapshotPath, unloadRows, ICON_SETS, iconSet } from "./extras.mjs";
 
 // agents-ids: the snapshot is written on this computer, its folder made first.
 async function writeSnapshot(snap) {
@@ -245,7 +245,15 @@ export default class Agents extends View {
         })
         .child(svg(`mods/workspace-chrome/${s.icon}.svg`).size(14).flex_none().text_color(t.muted))
         .child(div().flex_1().child(s.label))
-        .when(s.id === on, (el) => el.child(svg("mods/workspace-chrome/check.svg").size(14).flex_none().text_color(t.foreground)))));
+        .when(s.id === on, (el) => el.child(svg("mods/workspace-chrome/check.svg").size(14).flex_none().text_color(t.foreground)))))
+      // agents-ids: status icon sets, each previewed with its six states.
+      .child(div().px(8).pt(10).pb(6).mt(4).border_t(1).border_color(t.border).text_size(11).text_color(t.dim).child("Status icons"))
+      .children(ICON_SETS.map((s) => h_flex()
+        .id(`icons-${s.id}`).h(31).px(8).gap(9).rounded(7).items_center().text_color(t.foreground).hover((el) => el.bg(t.hover))
+        .on_click(() => { setShared("agents-ids.icons", s.id); closeOverlay(props().overlay); })
+        .child(div().w(62).flex_none().whitespace_nowrap().child(s.label))
+        .child(h_flex().flex_1().gap(4).items_center().children(["working", "blocked", "asks", "waiting", "idle", "done"].map((k) => this.status(t, { status: k }, true, s))))
+        .when(s.id === iconSet(shared("agents-ids.icons")).id, (el) => el.child(svg("mods/workspace-chrome/check.svg").size(14).flex_none().text_color(t.foreground)))));
   }
 
   peek(addr) {
@@ -419,8 +427,14 @@ export default class Agents extends View {
   }
 
   // compact: a ! for blocked where a header already says "Needs you".
-  status(t, a, compact = false) {
+  status(t, a, compact = false, set = iconSet(shared("agents-ids.icons"))) {
     const color = t[a.status] ?? t.dim;
+    // agents-ids: a picked icon set (header menu) draws Lucide icons; the Needs you / Your turn badges stay.
+    const pick = set.icons?.[a.status];
+    if (pick && (compact || (a.status !== "blocked" && a.status !== "asks"))) {
+      const c = a.status === "asks" ? t.accent : a.status === "waiting" ? t.dim : a.status === "idle" ? t.idle ?? t.dim : color;
+      return svg(`mods/agents-ids/icons/${pick}.svg`).size(12).mx(1).flex_none().text_color(c).when(a.status === "working" && Boolean(set.spin), (el) => el.spin(900));
+    }
     if (a.status === "working") return svg("mods/workspace-chrome/spinner.svg").size(12).mx(1).flex_none().text_color(t.working).spin(900);
     if (a.status === "blocked" && compact) return div().size(14).flex_none().rounded(4).bg(t.blocked + "26").text_size(10.5).font_bold().text_color(t.blocked).flex().items_center().justify_center().child("!");
     if (a.status === "blocked") return div().flex_none().px(6).h(18).rounded(5).bg(t.blocked + "26").text_size(10.5).font_semibold().text_color(t.blocked).flex().items_center().child("Needs you");
@@ -1016,16 +1030,16 @@ export default class Agents extends View {
               })
               .child(svg("mods/workspace-chrome/square-pen.svg").size(13)))
             .child(div() // agents-ids: Save & close sessions
-              .id("ag-unload").text_size(12).text_color(t.dim).hover((s) => s.text_color(t.foreground))
-              .on_click(() => this.toggleUnload()).tooltip("Save & close sessions (Ctrl+Shift+U)").child("\u23cf"))
+              .id("ag-unload").text_color(t.dim).hover((s) => s.text_color(t.foreground))
+              .on_click(() => this.toggleUnload()).tooltip("Save & close sessions (Ctrl+Shift+U)").child(svg("mods/workspace-chrome/archive.svg").size(13)))
             .child(
               div()
                 .id("ag-sort")
                 .text_size(11)
                 .text_color(t.dim)
                 .hover((s) => s.text_color(t.foreground))
-                .on_click(() => openOverlay({ mod: "agents-ids", kind: "popup", width: 200, height: 140, props: { sortMenu: true } }))
-                .tooltip(`Sort agents: ${sort.label}`)
+                .on_click(() => openOverlay({ mod: "agents-ids", kind: "popup", width: 250, height: 310, props: { sortMenu: true } }))
+                .tooltip(`Sort agents: ${sort.label} \u00b7 status icons`)
                 .child(svg(`mods/workspace-chrome/${sort.icon}.svg`).size(14)),
             )),
         ),

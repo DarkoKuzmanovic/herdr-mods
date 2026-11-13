@@ -1,6 +1,7 @@
 // Self-check for agents-ids: node mods/agents-ids/test_logic.mjs
 import assert from "node:assert/strict";
-import { briefName, effStatus, herds, herdSummary, inputBox, thirdLine, agentKey, sessionFromArgv, closeFacts, sameTerminal, doingLine, stalls, hideSession, projectOf, recentSessions, rememberSessions, reopenable, reopenSpace, reopenSummary, resumeArgv, resumeSpace, runningSids, shortSid, snapshotOf, snapshotPath, unloadRows } from "./extras.mjs";
+import { briefName, effStatus, herds, herdSummary, inputBox, thirdLine, agentKey, sessionFromArgv, closeFacts, sameTerminal, doingLine, stalls, hideSession, projectOf, recentSessions, rememberSessions, reopenable, reopenSpace, reopenSummary, resumeArgv, resumeSpace, runningSids, shortSid, snapshotOf, snapshotPath, unloadRows, ICON_SETS, iconSet } from "./extras.mjs";
+import { existsSync } from "node:fs";
 
 const identity = { address: "t1", state: "live", created_ms: 7, labels: { "agent.session": "one" } };
 assert.equal(sameTerminal(identity, identity), true);
@@ -196,4 +197,6 @@ assert.equal(inputBox("hermes", BAR + " ❯\n   second line of a draft"), null);
 assert.equal(inputBox("hermes", "  ❯ old message in the transcript\n   reply text"), null); // no composer at the bottom
 assert.equal(inputBox("hermes", "no prompt on screen"), null);
 assert.equal(inputBox("claude", " ❯"), null); // only agents whose box is known
+for (const s of ICON_SETS.slice(1)) for (const k of ["working", "blocked", "asks", "waiting", "idle", "done"]) assert.ok(existsSync(new URL(`icons/${s.icons[k]}.svg`, import.meta.url)), `${s.id} ${k}`);
+assert.equal(iconSet("nope").id, "default");
 console.log("ok");

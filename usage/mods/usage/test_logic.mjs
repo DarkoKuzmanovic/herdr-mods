@@ -19,13 +19,13 @@ assert.throws(() => parse('{"providers":{}}'));
 assert.equal(busiest(parse('{"providers":[{"id":"x","state":"ok","windows":[{"usedPercent":null}]}]}')), null);
 // Exercise the actual view's polling with a controllable exec, without a running window.
 const source = (await readFile(new URL("./main.js", import.meta.url), "utf8"))
-  .replace('import { View, div } from "gpui-kit";', 'const { View, div } = globalThis.usageMock;')
+  .replace('import { View, div, svg } from "gpui-kit";', 'const { View, div, svg } = globalThis.usageMock;')
   .replace('import { h_flex } from "gpui-base";', 'const { h_flex } = globalThis.usageMock;')
   .replace('import { exec, props, theme } from "herdr";', 'const { exec, props, theme } = globalThis.usageMock;')
   .replace('"./logic.mjs"', JSON.stringify(new URL("./logic.mjs", import.meta.url).href));
 let config = { command: ["cat", "fixture"], on: "workstation", every: 5 }, resolve, reject, calls = [], pending, interval, tick;
 globalThis.usageMock = {
-  View: class {}, div: () => {}, h_flex: () => {}, theme: () => ({}), props: () => config,
+  View: class {}, div: () => {}, svg: () => {}, h_flex: () => {}, theme: () => ({}), props: () => config,
   exec: (...args) => { calls.push(args); return new Promise((yes, no) => { resolve = yes; reject = no; }); }
 };
 const { default: Usage } = await import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`);

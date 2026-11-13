@@ -1,7 +1,8 @@
 # AI provider usage
 
-A quiet 28px status-bar block showing the busiest AI provider quota window, such as `codex 31%`.
-It uses the theme chrome background and top border, muted text and red at 90% or more. Hover to
+A quiet 28px status-bar block showing the busiest AI provider quota window, such as `codex 31%`,
+after a gauge icon (Lucide `gauge`, 13px, `gauge.svg`). It uses the theme chrome background and top
+border, muted text at the status bar's size (11.8px) and red at 90% or more. Hover to
 see each available provider window and its reset time; providers needing login or unavailable are
 listed once. No click action.
 
