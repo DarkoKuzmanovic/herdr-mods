@@ -326,6 +326,39 @@ export default class Agents extends View {
     cx.notify();
   }
 
+  // agents-ids: a line too long for the panel runs as a ticker while the pointer is on its row. A mod
+  // can't measure text before it is drawn, so the widths come from mouse moves over the line and its text.
+  // The ticker is two copies of the text sliding left natively (transition); once one copy has passed,
+  // a new element id puts it back at 0 without animating, which looks the same, and the next lap starts.
+  // The row's hover drives it: the line's own hover ends whenever the sliding text passes under the pointer.
+  marquee(el, id, text, tip, on) {
+    if (!on) {
+      if (this.scrolling?.id === id) this.scrolling = null;
+      return el.truncate().tooltip(tip).child(text);
+    }
+    const m = this.scrolling?.id === id ? this.scrolling : (this.scrolling = { id, box: 0, text: 0, lap: 0, run: false });
+    const lap = m.text + 40; // 40 px gap
+    const ms = () => (m.text + 40) * 18; // about 55 px a second; read late, as go() outlives the render that measured
+    const go = (cx) => cx.timer.after(m.lap ? 0 : 1000, (cx) => {
+      if (this.scrolling !== m) return;
+      m.run = true; cx.notify();
+      cx.timer.after(ms(), (cx) => { if (this.scrolling === m) { m.run = false; m.lap++; cx.notify(); go(cx); } });
+    });
+    const measure = (k) => (e, cx) => {
+      if (!e.bounds || m.started || m[k] === e.bounds.width) return;
+      m[k] = e.bounds.width;
+      if (m.box && m.text - m.box > 1) { m.started = true; cx.notify(); go(cx); }
+      else if (m.box && m.text) cx.notify(); // fits: the tooltip comes back
+    };
+    return el.relative().overflow_hidden().on_mouse_move(measure("box"))
+      .when(Boolean(m.box && m.text && m.text - m.box <= 1), (el) => el.tooltip(tip))
+      .child(div().invisible().truncate().child(text)) // keeps the line's height
+      .child(m.started
+        ? h_flex().id(`${id}-lap${m.lap}`).absolute().top(0).left(m.run ? -lap : 0).transition("left", { duration: ms(), easing: "linear" }).whitespace_nowrap()
+          .child(div().flex_none().child(text)).child(div().flex_none().pl(40).child(text))
+        : div().absolute().top(0).left(0).whitespace_nowrap().on_mouse_move(measure("text")).child(text));
+  }
+
   xButton(t, id, tip, onClick) {
     return div()
       .id(id)
@@ -882,7 +915,7 @@ export default class Agents extends View {
             .child(div().min_w(0).max_w(full && more ? 120 : 200).truncate().text_color(idle ? t.muted : t.foreground).child(name))
             .when(full && Boolean(more), el => el.child(div().flex_1().min_w(0).truncate().text_color(t.dim).child(`\u00b7 ${more}`))))
           .child(ids)
-          .when(Boolean(doing), (el) => el.child(div().min_w(0).truncate().text_size(11).text_color(doing.stale ? t.blocked : doing.you ? t.accent : t.dim).tooltip(doing.tip || doing.text).child(doing.text)))
+          .when(Boolean(doing), (el) => el.child(this.marquee(div().id(`third-${a.address}`).min_w(0).text_size(11).text_color(doing.stale ? t.blocked : doing.you ? t.accent : t.dim), `third-${a.address}`, doing.text, doing.tip || doing.text, this.hovered === a.address)))
           .when(Boolean(herdLine), (el) => el.child(div().min_w(0).truncate().text_size(11).text_color(t.muted).child(herdLine))))
         .when(Boolean(machine), el => el.child(div().text_size(10).text_color(t.dim).child(machine)))
         .when(kin > 0, el => el.child(fold(a, subs, mates)))

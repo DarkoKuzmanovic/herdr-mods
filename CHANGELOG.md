@@ -8,6 +8,10 @@ a version (see [AGENTS.md](AGENTS.md#releases)).
 
 ## [Unreleased]
 
+### Added
+
+- **agents-ids:** an agent's third line (Next, waiting, doing) that is too long for the panel runs as a ticker while the pointer is on it.
+
 ## [0.9.0] - 2026-11-12
 
 ### Added
