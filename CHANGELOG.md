@@ -8,8 +8,16 @@ a version (see [AGENTS.md](AGENTS.md#releases)).
 
 ## [Unreleased]
 
+### Added
+
+- **usage:** a warning toast when a quota window reaches 85%, and again at 95%; once per reset period.
+- **usage:** click the status bar item to update it now.
+- **agents-ids:** in the Matrix icons, Needs you pulses and Waiting breathes.
+
 ### Changed
 
+- **spaces-plus:** hovering a pull request badge opens a card with its title, state, review and each CI check.
+- **sysstat:** hovering opens a card with a bigger CPU graph of the last minute, its average and peak, and bars for memory and GPU.
 - **usage:** hovering the status bar item opens a card: each provider, busiest first, with a colored bar per quota window and when it resets; providers needing a login in one line.
 
 ## [0.11.0] - 2026-11-13

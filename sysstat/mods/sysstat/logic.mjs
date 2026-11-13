@@ -38,3 +38,6 @@ export const gib = (bytes) => (bytes / 2 ** 30).toFixed(1);
 
 /** Keep the last SAMPLES values. */
 export const push = (hist, v) => [...hist, v].slice(-SAMPLES);
+
+// The card's line under the CPU graph: average and peak of the samples shown.
+export const spread = (hist) => (hist.length ? { avg: Math.round(hist.reduce((a, b) => a + b, 0) / hist.length), peak: Math.max(...hist) } : null);

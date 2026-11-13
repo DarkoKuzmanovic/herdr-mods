@@ -54,13 +54,30 @@ const prs = prsByBranch(JSON.stringify([
   { number: 8, headRefName: "old", state: "CLOSED", isDraft: false, url: "u8" },
   { number: 7, headRefName: "done", state: "MERGED", isDraft: false, url: "u7" },
 ]));
-assert.deepEqual(prs.get("fix"), { number: 12, state: "OPEN", draft: true, url: "https://github.com/o/r/pull/12" });
+assert.deepEqual(prs.get("fix"), { number: 12, state: "OPEN", draft: true, url: "https://github.com/o/r/pull/12", title: "", review: "" });
 assert.equal(prs.get("old"), undefined);
 assert.equal(prs.get("done").state, "MERGED");
 assert.equal(prsByBranch("not json").size, 0);
 
 // CI: failures beat stuck queues; no alert for normal running or passing checks.
 assert.equal(typeof extras.ciStatus, "function");
+{
+  const now = Date.parse("2030-01-01T01:00:00Z");
+  const card = extras.prCard({ number: 5, state: "OPEN", draft: false, review: "CHANGES_REQUESTED", checks: [
+    { name: "lint", status: "COMPLETED", conclusion: "SUCCESS", startedAt: "2030-01-01T00:00:00Z", completedAt: "2030-01-01T00:02:00Z" },
+    { name: "test", status: "COMPLETED", conclusion: "FAILURE", startedAt: "2030-01-01T00:00:00Z", completedAt: "2030-01-01T00:04:00Z" },
+    { name: "build", status: "IN_PROGRESS", startedAt: "2030-01-01T00:55:00Z" },
+    { name: "deploy", status: "QUEUED", queuedSince: now - 6 * 60000 },
+  ] }, now);
+  assert.deepEqual(card.state, ["open", "ansi2"]);
+  assert.deepEqual(card.review, ["changes requested", "ansi1"]);
+  assert.equal(card.summary, "1 failed, 1 running, 1 queued, 1 passed");
+  assert.deepEqual(card.rows.map((r) => [r.mark, r.name, r.right]), [["✗", "test", "failed · 4m"], ["●", "build", "running 5m"], ["○", "deploy", "queued 6m"], ["✓", "lint", "2m"]]);
+  const many = extras.prCard({ state: "MERGED", checks: [{ name: "x", conclusion: "FAILURE" }, ...Array.from({ length: 10 }, (_, i) => ({ name: `ok${i}`, conclusion: "SUCCESS" }))] });
+  assert.equal(many.rows.length, 8);
+  assert.equal(many.more, 3);
+  assert.equal(many.rows[0].name, "x");
+}
 assert.deepEqual(extras.ciStatus([{ name: "tests", status: "COMPLETED", conclusion: "FAILURE" }], 1), { tone: "error", text: "Failed: tests" });
 const minute = 60000, now = Date.parse("2026-01-01T01:00:00Z");
 const check = (status, time) => ({ name: "build", status, startedAt: time });

@@ -1,6 +1,8 @@
 // Self-check for sysstat's helpers: node mods/sysstat/test_logic.mjs
 import assert from "node:assert/strict";
-import { SAMPLES, cpuPercent, cpuTimes, gib, gpu, memory, push } from "./logic.mjs";
+import { SAMPLES, cpuPercent, cpuTimes, gib, gpu, memory, push, spread } from "./logic.mjs";
+assert.deepEqual(spread([10, 20, 31]), { avg: 20, peak: 31 });
+assert.equal(spread([]), null);
 
 const a = cpuTimes("cpu  100 0 100 700 100 0 0 0 0 0\ncpu0 1 2 3 4\n");
 assert.deepEqual(a, [200, 1000]);

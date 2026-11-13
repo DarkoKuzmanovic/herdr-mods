@@ -30,7 +30,10 @@ checkout, drag to reorder), with:
   such file, as on macOS, means not WSL; only a failed read is tried again).
 - **Pull request**, `#42` before the ports: the newest PR from the space's branch, green when open, `dim`
   when draft, `ansi5` when merged; closed-unmerged ones are left out. Red when a check failed, amber
-  when CI has been queued for over 45 minutes; the tooltip names the failing checks. Click opens it on GitHub.
+  when CI has been queued for over 45 minutes; resting on the badge opens a 320px card (`HoverCard`): number and title, branch, state and review pills
+(`title` and `reviewDecision` come from the same `gh pr list` call), and each check with its time,
+failed first, then running, queued, passed; over 8 checks the passed ones fold into `+N passed`.
+Click opens it on GitHub.
 - **Machine rows** add the number of spaces, and CPU (`muted`) and memory (`dim`) in use (`12% 45%`, red from 90%) on
   connected machines; a remote without a reading yet shows a green `connected`. An unreachable machine
   shows why (`ssh timeout`, `connection refused`, `host key`) and since when, with the full error on hover.

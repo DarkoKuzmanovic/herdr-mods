@@ -10,9 +10,9 @@
 // switch, right-click for its menu, drag to reorder.
 
 import { View, div, svg } from "gpui-kit";
-import { v_flex, h_flex } from "gpui-base";
+import { v_flex, h_flex, HoverCard } from "gpui-base";
 import { spaces, machines, panes, run, openOverlay, exec, hc, theme, shared, setShared, watchFolder, window, layout, readTextFile, appHome } from "herdr";
-import { PORTS_SCRIPT, assignPorts, changedCount, ciStatus, cpuPercent, cpuTimes, duration, isWsl, machineStatus, memPercent, offlineTimes, parseListeners, portUrl, prsByBranch, spaceName, tabLabel, tilde } from "./extras.mjs";
+import { PORTS_SCRIPT, assignPorts, changedCount, ciStatus, cpuPercent, prCard, cpuTimes, duration, isWsl, machineStatus, memPercent, offlineTimes, parseListeners, portUrl, prsByBranch, spaceName, tabLabel, tilde } from "./extras.mjs";
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -203,7 +203,7 @@ export default class Spaces extends View {
       if (now - (this.prs[g.repo]?.at ?? 0) < 300000) continue;
       this.prs[g.repo] = { at: now, branches: this.prs[g.repo]?.branches ?? new Map() };
       try {
-        const r = await exec("gh", ["pr", "list", "--state", "all", "--limit", "100", "--json", "number,headRefName,state,isDraft,url,statusCheckRollup"], { cwd: place(s, ps), on: s.machine ?? null });
+        const r = await exec("gh", ["pr", "list", "--state", "all", "--limit", "100", "--json", "number,headRefName,state,isDraft,url,title,reviewDecision,statusCheckRollup"], { cwd: place(s, ps), on: s.machine ?? null });
         if (r.code === 0) this.prs[g.repo].branches = prsByBranch(r.stdout, this.prs[g.repo].branches, now);
       } catch {}
     }
@@ -244,6 +244,25 @@ export default class Spaces extends View {
       .child(div().text_color(hot(l.mem) ? t.blocked : t.dim).child(pct(l.mem)));
   }
 
+  // spaces-plus: the pull request badge's hover card (title, state and review, each check).
+  prCard(pr, g, t) {
+    const c = prCard(pr);
+    const pill = ([text, tone]) => div().flex_none().px(7).h(18).rounded(5).bg((t[tone] ?? t.dim).slice(0, 7) + "26").text_size(10.5).font_semibold().text_color(t[tone] ?? t.dim).flex().items_center().child(text);
+    return v_flex().w(320).text_size(11.8).bg(t.popover ?? t.chrome).border(1).border_color(t.border).rounded(8).shadow_lg()
+      .child(v_flex().px(14).pt(10).pb(10).gap(4)
+        .child(h_flex().gap(8).child(div().flex_none().font_bold().text_color(t.ansi5).child(`#${pr.number}`)).child(div().flex_1().min_w(0).truncate().font_bold().text_color(t.foreground).child(pr.title || g.branch)))
+        .child(div().truncate().text_size(11).text_color(t.dim).child(g.branch))
+        .child(h_flex().pt(4).gap(6).child(pill(c.state)).when(Boolean(c.review), (el) => el.child(pill(c.review)))))
+      .when(c.rows.length > 0, (el) => el.child(v_flex().px(14).py(10).gap(6).border_t(1).border_color(t.border)
+        .child(div().text_size(11).text_color(t.muted).child(`Checks · ${c.summary}`))
+        .children(c.rows.map((r) => h_flex().gap(8).items_center()
+          .child(div().w(12).flex_none().font_bold().text_color(t[r.tone]).child(r.mark))
+          .child(div().flex_1().min_w(0).truncate().text_color(r.mark === "✗" ? t.foreground : t.muted).child(r.name))
+          .child(div().flex_none().text_size(11).text_color(t.dim).child(r.right))))
+        .when(c.more > 0, (el) => el.child(div().pl(20).text_size(11).text_color(t.dim).child(`+${c.more} passed`)))))
+      .child(div().px(14).py(8).border_t(1).border_color(t.border).text_size(11).text_color(t.dim).child("click: open on GitHub"));
+  }
+
   // The space's ports and its branch's pull request, as small clickable chips.
   chips(w, g, t, ps) {
     const out = [];
@@ -251,12 +270,10 @@ export default class Spaces extends View {
     if (pr) {
       const ci = ciStatus(pr.checks);
       const color = ci?.tone === "error" ? t.ansi1 : ci?.tone === "warning" ? t.ansi3 : pr.state === "MERGED" ? t.ansi5 : pr.draft ? t.dim : t.ansi2;
-      const word = pr.state === "MERGED" ? "merged" : pr.draft ? "draft" : "open";
-      out.push(div().id(`pr-${w.id}`).flex_none().text_color(color).hover((s) => s.text_color(t.foreground))
-        .tooltip(`Pull request #${pr.number} (${word})${ci ? `\n${ci.text}` : ""}\n${pr.url}\nclick: open`)
+      out.push(HoverCard.new(`pr-card-${w.id}`).open_delay(300).content(this.prCard(pr, g, t)).trigger(div().id(`pr-${w.id}`).flex_none().text_color(color).hover((s) => s.text_color(t.foreground))
         // spaces-plus: the app's own URL opener; Windows has no xdg-open or open.
         .on_click((_e, cx) => { cx.stop_propagation(); cx.open_url(pr.url); })
-        .child(`#${pr.number}`));
+        .child(`#${pr.number}`)));
     }
     for (const p of this.ports.get(JSON.stringify([w.machine ?? null, place(w, ps)])) ?? []) {
       const url = portUrl(p, w.machine ?? null, this.sharesLocalhost.get(w.machine) === true);

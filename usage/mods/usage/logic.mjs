@@ -44,3 +44,22 @@ export function card(providers, now = Date.now()) {
 
 // Bar color: green below 60%, yellow below 85%, red from 85%.
 export const level = (percent) => (percent >= 85 ? "blocked" : percent >= 60 ? "working" : "done");
+
+// Quota warnings: a toast when a window first reaches 85%, and again at 95%, once per reset period.
+// seen maps "provider/window@resetAt" to the step already warned; returns the toast (or null) and the
+// new map, which keeps only windows still reported, so a reset or a vanished window forgets its step.
+export function warnings(providers, seen = {}, now = Date.now()) {
+  const next = {}, fresh = [];
+  for (const p of providers) if (p.state === "ok") for (const w of windows(p)) {
+    const key = `${p.id}/${w.id || w.label}@${w.resetAt ?? ""}`, step = w.usedPercent >= 95 ? 95 : w.usedPercent >= 85 ? 85 : 0;
+    next[key] = Math.max(step, seen[key] ?? 0);
+    if (step > (seen[key] ?? 0)) fresh.push({ id: p.id, label: w.label || w.id || "Usage", percent: w.usedPercent, reset: resetIn(w.resetAt, now) });
+  }
+  if (!fresh.length) return { toast: null, seen: next };
+  const level = fresh.some((f) => f.percent >= 95) ? "error" : "warning";
+  if (fresh.length === 1) {
+    const [f] = fresh;
+    return { toast: { title: `${f.id} at ${f.percent}%`, body: `${f.label}${f.reset ? ` · resets ${f.reset === "now" ? "now" : `in ${f.reset}`}` : ""}`, level }, seen: next };
+  }
+  return { toast: { title: `${fresh.length} quotas above 85%`, body: fresh.map((f) => `${f.id} ${f.label} ${f.percent}%`).join(" · "), level }, seen: next };
+}

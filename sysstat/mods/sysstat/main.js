@@ -2,9 +2,9 @@
 // shown space lives on, read from its /proc and /sys every 2 s (a remote space's through herdr-core).
 // Click: btop (else htop, else top) in a new tab of the shown space.
 import { View, div } from "gpui-kit";
-import { h_flex } from "gpui-base";
+import { h_flex, v_flex, HoverCard } from "gpui-base";
 import { exec, readTextFile, run, spaces, theme } from "herdr";
-import { SAMPLES, cpuPercent, cpuTimes, gib, gpu, memory, push } from "./logic.mjs";
+import { SAMPLES, cpuPercent, cpuTimes, gib, gpu, memory, push, spread } from "./logic.mjs";
 
 const read = (path, on) => readTextFile(path, { on }).catch(() => null);
 
@@ -72,17 +72,42 @@ export default class Sysstat extends View {
       .children(this.hist.map((v, i) => div().id(`s${i}`).w(2).h(Math.max(1, Math.round((v * 14) / 100))).bg(v >= 90 ? t.blocked : t.accent)));
     const g = this.gpu;
     const m = this.mem;
-    const tip = [this.machine ? `On ${this.machine}` : "This computer"];
-    if (m) tip.push(`Memory ${Math.round((100 * m.used) / m.total)}% used`);
-    tip.push("Click: open btop in a new tab");
-    return h_flex().id("sysstat").size_full().px(14).gap(6).items_center().bg(t.chrome).border_t(1).border_color(t.border)
-      .text_size(11.8).hover((s) => s.bg(t.hover)).tooltip(tip.join("\n"))
+    return h_flex().id("sysstat").size_full().px(14).items_center().bg(t.chrome).border_t(1).border_color(t.border)
+      .text_size(11.8).hover((s) => s.bg(t.hover))
       .on_click(() => this.openMonitor())
+      .child(HoverCard.new("sysstat-card").open_delay(250).anchor("bottom_center").content(this.card(t)).trigger(h_flex().h_full().gap(6).items_center()
       .when(Boolean(this.machine), (el) => el.child(div().flex_shrink(1).min_w(0).truncate().text_color(t.accent).child(this.machine)))
       .when(this.error, (el) => el.child(value("CPU / MEM unavailable")))
       .when(!this.error, (el) => el
         .child(label("CPU")).child(value(this.cpu === null ? "—" : `${this.cpu}%`, this.cpu ?? 0)).child(spark)
         .child(label("MEM")).child(value(m ? `${gib(m.used)}/${gib(m.total)}G` : "—", m ? (100 * m.used) / m.total : 0))
-        .when(Boolean(g), (el) => el.child(label("GPU")).child(value(`${g.busy}%${g.used !== null && g.total ? ` ${gib(g.used)}/${gib(g.total)}G` : ""}`, Math.max(g.busy, g.used !== null && g.total ? (100 * g.used) / g.total : 0)))));
+        .when(Boolean(g), (el) => el.child(label("GPU")).child(value(`${g.busy}%${g.used !== null && g.total ? ` ${gib(g.used)}/${gib(g.total)}G` : ""}`, Math.max(g.busy, g.used !== null && g.total ? (100 * g.used) / g.total : 0)))))));
+  }
+
+  // The hover card, styled as the usage mod's: a bigger CPU graph, then a bar per memory and GPU figure.
+  card(t) {
+    const tone = (pct) => (pct >= 90 ? t.blocked : t.accent);
+    const s = spread(this.hist), m = this.mem, g = this.gpu;
+    const bar = (label, pct, text) => v_flex().gap(3)
+      .child(h_flex().justify_between().child(div().text_size(11).text_color(t.muted).child(label)).child(div().text_size(11).font_bold().text_color(pct >= 90 ? t.blocked : t.foreground).child(text)))
+      .child(div().h(4).w_full().rounded(2).bg(t.border).child(div().h_full().rounded(2).bg(tone(pct)).w(Math.max(4, Math.round(272 * Math.min(pct, 100) / 100)))));
+    const bars = [];
+    if (m) bars.push(bar("Memory", (100 * m.used) / m.total, `${gib(m.used)} / ${gib(m.total)} G`));
+    if (g) bars.push(bar("GPU", g.busy, `${g.busy}%`));
+    if (g && g.used !== null && g.total) bars.push(bar("VRAM", (100 * g.used) / g.total, `${gib(g.used)} / ${gib(g.total)} G`));
+    return v_flex().w(300).text_size(11.8).bg(t.popover ?? t.chrome).border(1).border_color(t.border).rounded(8).shadow_lg()
+      .child(h_flex().px(14).py(10).gap(8).items_center().border_b(1).border_color(t.border)
+        .child(div().flex_1().font_bold().text_color(t.foreground).child(this.machine ?? "This computer"))
+        .child(div().text_size(11).text_color(t.dim).child("every 2 s")))
+      .child(v_flex().px(14).py(10).gap(10)
+        .when(this.error, (el) => el.child(div().text_color(t.dim).child("CPU and memory unavailable")))
+        .when(!this.error, (el) => el
+          .child(v_flex().gap(4)
+            .child(h_flex().justify_between().child(div().text_size(11).text_color(t.muted).child("CPU, last minute")).child(div().text_size(11).font_bold().text_color(tone(this.cpu ?? 0)).child(this.cpu === null ? "—" : `${this.cpu}%`)))
+            .child(h_flex().w_full().h(40).gap(1).items_end().bg(t.canvas ?? t.chrome).rounded(3)
+              .children(this.hist.map((v, i) => div().id(`c${i}`).w(8).h(Math.max(1, Math.round((v * 40) / 100))).rounded_t(1).bg(tone(v)))))
+            .when(Boolean(s), (el) => el.child(div().text_size(10.5).text_color(t.dim).child(`average ${s?.avg}% · peak ${s?.peak}%`))))
+          .children(bars)))
+      .child(div().px(14).py(8).border_t(1).border_color(t.border).text_size(11).text_color(t.dim).child("click: open btop in a new tab"));
   }
 }

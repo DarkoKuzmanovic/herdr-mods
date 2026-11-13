@@ -8,7 +8,10 @@ a header with the gauge, **AI usage** and the time of the last update; then each
 numbers, busiest first, and under it one row per window: its label, the percent, a 4px bar and
 "resets in 3h 12m". Bars and percents are green below 60%, yellow (`working`) below 85%, red
 (`blocked`) from 85%. A footer names providers needing login or unavailable, three at most and
-`+N`, and an update failure. No click action.
+`+N`, and an update failure. Clicking the item updates it now ("updating…" in the card header meanwhile). When a quota window
+first reaches 85%, a warning toast says so (`codex at 87%`, `Primary · resets in 2h 14m`), and again
+in red at 95%; once per window per reset period, remembered in `localStorage`, and several at once
+make one toast (`2 quotas above 85%`).
 
 ![Provider usage](preview.png)
 

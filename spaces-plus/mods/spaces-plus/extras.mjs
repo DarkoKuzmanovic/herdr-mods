@@ -94,7 +94,7 @@ export const isWsl = (osrelease) => /microsoft|wsl/i.test(osrelease ?? "");
  *  `local`: its localhost is this computer's too (WSL forwards its localhost to Windows). */
 export const portUrl = (p, machine, local = false) => `http://${p.host === "localhost" && machine && !local ? machine : p.host}:${p.port}`;
 
-/** `gh pr list --json number,headRefName,state,isDraft,url` output as branch -> the newest PR from it
+/** `gh pr list --json number,headRefName,state,isDraft,url,title,reviewDecision,statusCheckRollup` output as branch -> the newest PR from it
  *  ({ number, state, draft, url }); closed-unmerged ones are left out. */
 export function prsByBranch(json, previous = new Map(), now = Date.now()) {
   const out = new Map();
@@ -102,7 +102,7 @@ export function prsByBranch(json, previous = new Map(), now = Date.now()) {
   try { list = JSON.parse(json ?? "[]"); } catch {}
   for (const p of Array.isArray(list) ? list : []) {
     if (!p?.headRefName || out.has(p.headRefName) || p.state === "CLOSED") continue;
-    const pr = { number: p.number, state: p.state, draft: Boolean(p.isDraft), url: p.url };
+    const pr = { number: p.number, state: p.state, draft: Boolean(p.isDraft), url: p.url, title: p.title ?? "", review: p.reviewDecision ?? "" };
     if (Array.isArray(p.statusCheckRollup)) {
       const old = previous.get(p.headRefName);
       pr.checks = p.statusCheckRollup.map(c => {
@@ -119,8 +119,10 @@ export function prsByBranch(json, previous = new Map(), now = Date.now()) {
   return out;
 }
 
+const FAILED = ["FAILURE", "ERROR", "TIMED_OUT", "ACTION_REQUIRED", "STARTUP_FAILURE", "STALE"];
+
 export function ciStatus(checks, now = Date.now()) {
-  const failed = (checks ?? []).filter(c => ["FAILURE", "ERROR", "TIMED_OUT", "ACTION_REQUIRED", "STARTUP_FAILURE", "STALE"].includes(c.conclusion || c.state));
+  const failed = (checks ?? []).filter(c => FAILED.includes(c.conclusion || c.state));
   if (failed.length) return { tone: "error", text: `Failed: ${failed.map(c => c.name || c.context || "check").join(", ")}` };
   const ages = (checks ?? []).filter(c => c.status === "QUEUED" || c.state === "PENDING")
     .map(c => now - (c.queuedSince ?? Date.parse(c.createdAt || c.startedAt))).filter(age => age > 45 * 60000);
@@ -159,4 +161,25 @@ export function memPercent(meminfo) {
   const total = kib("MemTotal");
   const avail = kib("MemAvailable");
   return total > 0 && avail >= 0 && avail <= total ? Math.round((100 * (total - avail)) / total) : null;
+}
+
+/** The pull request badge's hover card: state and review pills, then each check, failed first;
+ *  more than 8 checks fold the passed ones into "+N passed". tone is a theme key. */
+export function prCard(pr, now = Date.now()) {
+  const state = pr.state === "MERGED" ? ["merged", "ansi5"] : pr.draft ? ["draft", "dim"] : ["open", "ansi2"];
+  const review = { APPROVED: ["approved", "ansi2"], CHANGES_REQUESTED: ["changes requested", "ansi1"], REVIEW_REQUIRED: ["review required", "ansi3"] }[pr.review];
+  const since = (d) => { const t = Date.parse(d); return t > 0 ? duration(Math.max(0, now - t)) : ""; };
+  const took = (c) => { const a = Date.parse(c.startedAt), b = Date.parse(c.completedAt); return a > 0 && b >= a ? duration(b - a) : ""; };
+  const rows = (pr.checks ?? []).map((c) => {
+    const name = c.name || c.context || "check", s = c.conclusion || c.state;
+    if (FAILED.includes(s)) return { kind: 0, mark: "✗", tone: "ansi1", name, right: ["failed", took(c)].filter(Boolean).join(" · ") };
+    if (c.status === "IN_PROGRESS") return { kind: 1, mark: "●", tone: "ansi3", name, right: `running ${since(c.startedAt)}`.trim() };
+    if (c.status === "QUEUED" || c.status === "PENDING" || c.status === "WAITING" || c.state === "PENDING" || c.state === "EXPECTED")
+      return { kind: 2, mark: "○", tone: "ansi3", name, right: `queued ${c.queuedSince ? duration(Math.max(0, now - c.queuedSince)) : since(c.createdAt || c.startedAt)}`.trim() };
+    return { kind: 3, mark: "✓", tone: "ansi2", name, right: took(c) };
+  }).sort((a, b) => a.kind - b.kind);
+  const count = (k) => rows.filter((r) => r.kind === k).length;
+  const summary = [[0, "failed"], [1, "running"], [2, "queued"], [3, "passed"]].filter(([k]) => count(k)).map(([k, w]) => `${count(k)} ${w}`).join(", ");
+  const shown = rows.length > 8 ? rows.filter((r, i) => r.kind < 3 || i < 8) : rows;
+  return { state, review, summary, rows: shown, more: rows.length - shown.length };
 }

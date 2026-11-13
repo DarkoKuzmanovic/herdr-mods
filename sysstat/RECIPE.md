@@ -11,7 +11,9 @@ padding, 11.8px text: labels (`CPU`, `MEM`, `GPU`) in `dim`, values in `muted` (
 sparkline of the last 30 readings: 2px bars, 1px apart, up to 14px tall, `accent`, `blocked` from 90%.
 For a space on another machine the machine's name comes first, in `accent`. Before the first reading
 values show `—`; if `/proc` can't be read, `CPU / MEM unavailable`. The GPU part shows only when an
-amdgpu card is found. The bar highlights on hover; the tooltip names the machine and the memory share.
+amdgpu card is found. The bar highlights on hover, and resting on it (250 ms) opens a 300px card above it (`HoverCard`,
+styled as the usage mod's): the machine, a 40px CPU graph of the last minute with average and peak,
+then 4px bars for memory, GPU and VRAM (red from 90%), and "click: open btop in a new tab".
 
 **How it behaves:** every 2000ms it reads `/proc/stat` and `/proc/meminfo` of the active space's machine
 (`readTextFile(path, { on: space.machine })`, so a remote space's numbers come through herdr-core),

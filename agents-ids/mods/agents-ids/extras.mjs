@@ -322,11 +322,12 @@ export function inputBox(app, screen) {
 
 // Status icon sets (Lucide, in ./icons). "default" draws today's spinner, ! and ?, clock, ring and dot.
 // spin: the working icon turns, as the default spinner does. scan: an icon swung left and right over it.
+// pulse: ms per fade out and back, by status.
 export const ICON_SETS = [
   { id: "default", label: "Default" },
   { id: "rings", label: "Rings", spin: true, icons: { working: "loader-circle", blocked: "circle-alert", asks: "circle-question-mark", waiting: "circle-dashed", idle: "circle", done: "circle-check" } },
   { id: "signs", label: "Signs", icons: { working: "activity", blocked: "octagon-alert", asks: "message-circle-question-mark", waiting: "hourglass", idle: "moon", done: "check" } },
-  { id: "matrix", label: "Matrix", scan: "matrix-column", icons: { working: "matrix-working", blocked: "matrix-blocked", asks: "matrix-asks", waiting: "matrix-waiting", idle: "matrix-idle", done: "matrix-done" } },
+  { id: "matrix", label: "Matrix", scan: "matrix-column", pulse: { blocked: 900, waiting: 2400 }, icons: { working: "matrix-working", blocked: "matrix-blocked", asks: "matrix-asks", waiting: "matrix-waiting", idle: "matrix-idle", done: "matrix-done" } },
   { id: "who", label: "Who", icons: { working: "bot", blocked: "hand", asks: "user-round", waiting: "alarm-clock", idle: "coffee", done: "check-check" } },
 ];
 export const iconSet = (id) => ICON_SETS.find((s) => s.id === id) ?? ICON_SETS[0];

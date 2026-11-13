@@ -440,7 +440,8 @@ export default class Agents extends View {
       if (a.status === "working" && set.scan) return div().relative().size(12).mx(1).flex_none().text_color(c)
         .child(svg(`mods/agents-ids/icons/${pick}.svg`).size(12).text_color(c))
         .child(svg(`mods/agents-ids/icons/${set.scan}.svg`).absolute().top(0).w(3).h(12).text_color(c).loop("left", { from: 0, to: 9, period: 900 }));
-      return svg(`mods/agents-ids/icons/${pick}.svg`).size(12).mx(1).flex_none().text_color(c).when(a.status === "working" && Boolean(set.spin), (el) => el.spin(900));
+      return svg(`mods/agents-ids/icons/${pick}.svg`).size(12).mx(1).flex_none().text_color(c).when(a.status === "working" && Boolean(set.spin), (el) => el.spin(900))
+        .when(Boolean(set.pulse?.[a.status]), (el) => el.loop("opacity", { from: 1, to: 0.35, period: set.pulse[a.status] }));
     }
     if (a.status === "working") return svg("mods/workspace-chrome/spinner.svg").size(12).mx(1).flex_none().text_color(t.working).spin(900);
     if (a.status === "blocked" && compact) return div().size(14).flex_none().rounded(4).bg(t.blocked + "26").text_size(10.5).font_bold().text_color(t.blocked).flex().items_center().justify_center().child("!");

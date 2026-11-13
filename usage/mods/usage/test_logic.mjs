@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { parse, busiest, resetIn, card, level } from "./logic.mjs";
+import { parse, busiest, resetIn, card, level, warnings } from "./logic.mjs";
 
 const sample = JSON.stringify({ schemaVersion: 2, providers: [
   { id: "claude", state: "ok", windows: [{ id: "weekly-all", label: "Weekly (all)", usedPercent: 7, resetAt: "2030-01-03T04:00:00Z" }] },
@@ -18,6 +18,18 @@ assert.deepEqual(c.rows[0].windows[0], { label: "Primary", percent: 31, reset: "
 assert.deepEqual(c.footer, ["needs login: kimi"]);
 assert.deepEqual(card(parse('{"providers":[{"id":"a","state":"auth-needed"},{"id":"b","state":"auth-needed"},{"id":"c","state":"auth-needed"},{"id":"d","state":"auth-needed"},{"id":"e","state":"error"}]}')).footer, ["needs login: a, b, c +1", "unavailable: e"]);
 assert.deepEqual([59, 60, 84, 85].map(level), ["done", "working", "working", "blocked"]);
+const quota = (pct, reset = "2030-01-01T02:14:00Z", more = []) => parse(JSON.stringify({ providers: [{ id: "codex", state: "ok", windows: [{ id: "primary", label: "Primary", usedPercent: pct, resetAt: reset }, ...more] }, { id: "kimi", state: "auth-needed" }] }));
+const t0 = Date.parse("2030-01-01T00:00:00Z");
+let wn = warnings(quota(80), {}, t0);
+assert.equal(wn.toast, null);
+wn = warnings(quota(87), wn.seen, t0);
+assert.deepEqual(wn.toast, { title: "codex at 87%", body: "Primary · resets in 2h 14m", level: "warning" });
+assert.equal(warnings(quota(90), wn.seen, t0).toast, null, "85% warns once");
+wn = warnings(quota(96), wn.seen, t0);
+assert.equal(wn.toast.level, "error", "95% warns again, red");
+assert.equal(warnings(quota(97), wn.seen, t0).toast, null);
+assert.equal(warnings(quota(88, "2030-01-01T07:14:00Z"), wn.seen, t0).toast.title, "codex at 88%", "a new reset period warns again");
+assert.equal(warnings(quota(88, undefined, [{ id: "weekly", label: "Weekly", usedPercent: 91 }]), {}, t0).toast.title, "2 quotas above 85%");
 assert.throws(() => parse("invalid secret"), /Invalid collector output/);
 assert.throws(() => parse('{"providers":{}}'));
 assert.equal(busiest(parse('{"providers":[{"id":"x","state":"ok","windows":[{"usedPercent":null}]}]}')), null);
@@ -25,11 +37,13 @@ assert.equal(busiest(parse('{"providers":[{"id":"x","state":"ok","windows":[{"us
 const source = (await readFile(new URL("./main.js", import.meta.url), "utf8"))
   .replace('import { View, div, svg } from "gpui-kit";', 'const { View, div, svg } = globalThis.usageMock;')
   .replace('import { h_flex, v_flex, HoverCard } from "gpui-base";', 'const { h_flex, v_flex, HoverCard } = globalThis.usageMock;')
-  .replace('import { exec, props, theme } from "herdr";', 'const { exec, props, theme } = globalThis.usageMock;')
+  .replace('import { exec, notify, props, theme } from "herdr";', 'const { exec, notify, props, theme } = globalThis.usageMock;')
   .replace('"./logic.mjs"', JSON.stringify(new URL("./logic.mjs", import.meta.url).href));
 let config = { command: ["cat", "fixture"], on: "workstation", every: 5 }, resolve, reject, calls = [], pending, interval, tick;
+const toasts = [], store = new Map();
+globalThis.localStorage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, String(v)) };
 globalThis.usageMock = {
-  View: class {}, div: () => {}, svg: () => {}, h_flex: () => {}, theme: () => ({}), props: () => config,
+  View: class {}, div: () => {}, svg: () => {}, h_flex: () => {}, theme: () => ({}), props: () => config, notify: (n) => toasts.push(n),
   exec: (...args) => { calls.push(args); return new Promise((yes, no) => { resolve = yes; reject = no; }); }
 };
 const { default: Usage } = await import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`);
