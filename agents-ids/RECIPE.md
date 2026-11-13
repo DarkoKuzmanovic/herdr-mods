@@ -40,11 +40,11 @@ and text widths come from `on_mouse_move` bounds; the lap time reads them when i
 render. The line's own hover can't drive it (the sliding text ends it), so the row's does.
 
 **Status icons**: below the sort choices the sort menu has a *Status icons* section, each choice previewed
-with its six states: **Default** (the marks above), **Rings**, **Signs**, **Badges** and **Who**, Lucide icons shipped in
+with its six states: **Default** (the marks above), **Rings**, **Signs**, **Matrix** and **Who**, Lucide icons shipped in
 `mods/agents-ids/icons/` (ISC, its `LICENSE` beside them) and listed in `ICON_SETS` in `extras.mjs`. The pick
 is `shared("agents-ids.icons")`. The key command `agents-ids.sort` opens the menu (at the window's top left, as a key has no pointer to follow; the demo uses it for `docs/sort-menu.png`). A set replaces the spinner, the compact `!`/`?`, the clock, the ring and the
-dot (12px, the status colors; the working icon spins in Rings and in Badges, a running segment on the
-badge outline, whose waiting icon is a clock drawn inside it); the *Needs you* and *Your turn* pills stay.
+dot (12px, the status colors; the working icon spins in Rings; Matrix is a 3x3 grid of square dots, unlit ones at
+25%, and while working a lit column sweeps across it, a `loop("left")` over the dim grid); the *Needs you* and *Your turn* pills stay.
 
 **Herds**: a live terminal on this computer with `agent.lead=<t>` naming another live one is that lead's
 herd member. A lead row gets a line `herd · 3 working · 1 needs you · 1 done`. In Priority view members

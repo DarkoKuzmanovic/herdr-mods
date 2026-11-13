@@ -436,6 +436,10 @@ export default class Agents extends View {
     const pick = set.icons?.[a.status];
     if (pick && (compact || (a.status !== "blocked" && a.status !== "asks"))) {
       const c = a.status === "asks" ? t.accent : a.status === "waiting" ? t.dim : a.status === "idle" ? t.idle ?? t.dim : color;
+      // Matrix: a lit column sweeps over the dim grid (native loop, no redraws).
+      if (a.status === "working" && set.scan) return div().relative().size(12).mx(1).flex_none().text_color(c)
+        .child(svg(`mods/agents-ids/icons/${pick}.svg`).size(12).text_color(c))
+        .child(svg(`mods/agents-ids/icons/${set.scan}.svg`).absolute().top(0).w(3).h(12).text_color(c).loop("left", { from: 0, to: 9, period: 900 }));
       return svg(`mods/agents-ids/icons/${pick}.svg`).size(12).mx(1).flex_none().text_color(c).when(a.status === "working" && Boolean(set.spin), (el) => el.spin(900));
     }
     if (a.status === "working") return svg("mods/workspace-chrome/spinner.svg").size(12).mx(1).flex_none().text_color(t.working).spin(900);

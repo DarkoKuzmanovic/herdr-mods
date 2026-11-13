@@ -11,7 +11,7 @@ a version (see [AGENTS.md](AGENTS.md#releases)).
 ### Added
 
 - **agents-ids:** key command `agents-ids.sort` opens the sort and status icons menu.
-- **agents-ids:** a fifth status icon set, **Badges**.
+- **agents-ids:** a fifth status icon set, **Matrix**: a 3x3 dot grid, a lit column sweeping across it while the agent works.
 
 ## [0.10.0] - 2026-11-13
 

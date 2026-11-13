@@ -199,4 +199,5 @@ assert.equal(inputBox("hermes", "no prompt on screen"), null);
 assert.equal(inputBox("claude", " ❯"), null); // only agents whose box is known
 for (const s of ICON_SETS.slice(1)) for (const k of ["working", "blocked", "asks", "waiting", "idle", "done"]) assert.ok(existsSync(new URL(`icons/${s.icons[k]}.svg`, import.meta.url)), `${s.id} ${k}`);
 assert.equal(iconSet("nope").id, "default");
+for (const s of ICON_SETS) if (s.scan) assert.ok(existsSync(new URL(`icons/${s.scan}.svg`, import.meta.url)), `${s.id} scan`);
 console.log("ok");
