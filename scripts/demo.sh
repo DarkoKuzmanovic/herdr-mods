@@ -98,7 +98,25 @@ space() {
 start() {
   mkdir -p "$DEMO"/{home,state,share,remote,run} && chmod 700 "$DEMO/run"
   make_repos
+  local real_app="${HERDR_APP_HOME:-$HOME/.config/herdr-app}"
   demo_env
+  # The shots wear your own look (theme and fonts only), not Herdr's defaults.
+  mkdir -p "$HERDR_APP_HOME/themes"
+  python3 - "$real_app" "$HERDR_APP_HOME" <<'PY'
+import json, os, shutil, sys
+real, demo = sys.argv[1:]
+try:
+    mine = json.load(open(f"{real}/settings.json"))
+except (OSError, ValueError):
+    sys.exit(0)
+path = f"{demo}/settings.json"
+ours = json.load(open(path)) if os.path.exists(path) else {}
+ours.update({k: v for k, v in mine.items() if k == "theme" or k.startswith(("font", "ui_font"))})
+json.dump(ours, open(path, "w"), indent=2)
+theme = f"{real}/themes/{mine.get('theme')}.json"
+if os.path.exists(theme):
+    shutil.copy(theme, f"{demo}/themes/")
+PY
   if ! herdr-app status >/dev/null 2>&1; then
     setsid herdr-app >"$DEMO/app.log" 2>&1 </dev/null &
     for _ in $(seq 40); do herdr-app status >/dev/null 2>&1 && break; sleep 0.5; done
