@@ -8,6 +8,10 @@ a version (see [AGENTS.md](AGENTS.md#releases)).
 
 ## [Unreleased]
 
+### Changed
+
+- **usage:** hovering the status bar item opens a card: each provider, busiest first, with a colored bar per quota window and when it resets; providers needing a login in one line.
+
 ## [0.11.0] - 2026-11-13
 
 ### Added

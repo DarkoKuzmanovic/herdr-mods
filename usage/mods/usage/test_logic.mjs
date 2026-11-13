@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { parse, busiest, resetIn, tooltip } from "./logic.mjs";
+import { parse, busiest, resetIn, card, level } from "./logic.mjs";
 
 const sample = JSON.stringify({ schemaVersion: 2, providers: [
   { id: "claude", state: "ok", windows: [{ id: "weekly-all", label: "Weekly (all)", usedPercent: 7, resetAt: "2030-01-03T04:00:00Z" }] },
@@ -12,15 +12,19 @@ assert.deepEqual(busiest(providers), { id: "codex", percent: 31 });
 assert.equal(resetIn("2030-01-03T04:00:00Z", Date.parse("2030-01-01T00:00:00Z")), "2d 4h");
 assert.equal(resetIn("bad", 0), null);
 assert.equal(resetIn("2030-01-01T00:00:00Z", Date.parse("2030-01-02T00:00:00Z")), "now");
-assert.match(tooltip(providers, Date.parse("2030-01-01T00:00:00Z")), /codex: Primary 31% · resets in 1d 4h/);
-assert.match(tooltip(providers, 0), /kimi: needs login/);
+const c = card(providers, Date.parse("2030-01-01T00:00:00Z"));
+assert.deepEqual(c.rows.map((p) => p.id), ["codex", "claude"], "busiest provider first");
+assert.deepEqual(c.rows[0].windows[0], { label: "Primary", percent: 31, reset: "resets in 1d 4h" });
+assert.deepEqual(c.footer, ["needs login: kimi"]);
+assert.deepEqual(card(parse('{"providers":[{"id":"a","state":"auth-needed"},{"id":"b","state":"auth-needed"},{"id":"c","state":"auth-needed"},{"id":"d","state":"auth-needed"},{"id":"e","state":"error"}]}')).footer, ["needs login: a, b, c +1", "unavailable: e"]);
+assert.deepEqual([59, 60, 84, 85].map(level), ["done", "working", "working", "blocked"]);
 assert.throws(() => parse("invalid secret"), /Invalid collector output/);
 assert.throws(() => parse('{"providers":{}}'));
 assert.equal(busiest(parse('{"providers":[{"id":"x","state":"ok","windows":[{"usedPercent":null}]}]}')), null);
 // Exercise the actual view's polling with a controllable exec, without a running window.
 const source = (await readFile(new URL("./main.js", import.meta.url), "utf8"))
   .replace('import { View, div, svg } from "gpui-kit";', 'const { View, div, svg } = globalThis.usageMock;')
-  .replace('import { h_flex } from "gpui-base";', 'const { h_flex } = globalThis.usageMock;')
+  .replace('import { h_flex, v_flex, HoverCard } from "gpui-base";', 'const { h_flex, v_flex, HoverCard } = globalThis.usageMock;')
   .replace('import { exec, props, theme } from "herdr";', 'const { exec, props, theme } = globalThis.usageMock;')
   .replace('"./logic.mjs"', JSON.stringify(new URL("./logic.mjs", import.meta.url).href));
 let config = { command: ["cat", "fixture"], on: "workstation", every: 5 }, resolve, reject, calls = [], pending, interval, tick;

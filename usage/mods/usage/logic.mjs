@@ -27,12 +27,20 @@ export function resetIn(date, now = Date.now()) {
   return `${minutes}m`;
 }
 
-export function tooltip(providers, now = Date.now()) {
-  return providers.flatMap((p) => {
-    if (p.state !== "ok") return [`${p.id}: ${p.state === "auth-needed" ? "needs login" : "unavailable"}`];
-    return windows(p).map((w) => {
+// The hover card: providers with numbers, busiest first; the rest named in one footer line.
+export function card(providers, now = Date.now()) {
+  const rows = providers.filter((p) => p.state === "ok" && windows(p).length)
+    .map((p) => ({ id: p.id, windows: windows(p).map((w) => {
       const reset = resetIn(w.resetAt, now);
-      return `${p.id}: ${w.label || w.id || "Usage"} ${w.usedPercent}%${reset ? ` · resets ${reset === "now" ? "now" : `in ${reset}`}` : ""}`;
-    });
-  }).join("\n");
+      return { label: w.label || w.id || "Usage", percent: w.usedPercent, reset: reset ? (reset === "now" ? "resets now" : `resets in ${reset}`) : "" };
+    }) }))
+    .sort((a, b) => Math.max(...b.windows.map((w) => w.percent)) - Math.max(...a.windows.map((w) => w.percent)));
+  const login = providers.filter((p) => p.state === "auth-needed").map((p) => p.id);
+  const down = providers.filter((p) => p.state !== "ok" && p.state !== "auth-needed").map((p) => p.id);
+  const names = (ids) => ids.length > 3 ? `${ids.slice(0, 3).join(", ")} +${ids.length - 3}` : ids.join(", ");
+  const footer = [login.length && `needs login: ${names(login)}`, down.length && `unavailable: ${names(down)}`].filter(Boolean);
+  return { rows, footer };
 }
+
+// Bar color: green below 60%, yellow below 85%, red from 85%.
+export const level = (percent) => (percent >= 85 ? "blocked" : percent >= 60 ? "working" : "done");
