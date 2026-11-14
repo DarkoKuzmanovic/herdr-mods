@@ -8,6 +8,8 @@ a version (see [AGENTS.md](AGENTS.md#releases)).
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-11-14
+
 ### Added
 
 - **handovers:** a new mod for the handover notes agents leave in a repo (`.hermes/plans/*-handover.md`): a status-bar count, red when a note has a step for you, and a panel (Ctrl+Shift+H in the README's keys) where you tick off your steps, mark a note done, and start a **New agent** that reads the note and waits for your go, reopen the **Old session** that wrote it, or open the **Note**. The note format is in `docs/handovers.md`; `main-plus` has the badge.
@@ -272,7 +274,8 @@ First public release.
   OpenCode (TUI plugin), all through `integrations/bin/agent-session-label`.
 - `install.sh` (`--mods-only`, `--watch`) and the `main-plus` layout.
 
-[Unreleased]: https://github.com/DarkoKuzmanovic/herdr-mods/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/DarkoKuzmanovic/herdr-mods/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/DarkoKuzmanovic/herdr-mods/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/DarkoKuzmanovic/herdr-mods/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/DarkoKuzmanovic/herdr-mods/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/DarkoKuzmanovic/herdr-mods/compare/v0.9.0...v0.10.0
