@@ -29,6 +29,7 @@ CROP_AGENTS="${CROP_AGENTS:-0 690 296 1225}"
 CROP_MENU="${CROP_MENU:-0 0 292 372}"
 CROP_SYSSTAT="${CROP_SYSSTAT:-2960 1370 3410 1406}"
 CROP_USAGE="${CROP_USAGE:-2850 1370 2960 1406}"
+CROP_HANDOVERS="${CROP_HANDOVERS:-1440 350 2000 1060}"
 
 demo_env() {
   export HERDR_APP_HOME="$DEMO/home" XDG_RUNTIME_DIR="$DEMO/run" XDG_STATE_HOME="$DEMO/state" XDG_DATA_HOME="$DEMO/share"
@@ -73,6 +74,10 @@ make_repos() {
     git -C "$w/docs-site" push -q -u origin main
     for m in "guide" "faq"; do echo "$m" >"$w/docs-site/$m.md"; git -C "$w/docs-site" add -A; git -C "$w/docs-site" -c user.name=demo -c user.email=demo@example.com commit -qm "$m"; done
   fi
+  # Handover notes for the handovers panel (rewritten each start, so a tick from a past run is undone).
+  mkdir -p "$w/acme-api/.hermes/plans" "$w/docs-site/.hermes/plans"
+  printf -- '---\ntitle: Search endpoint\napp: claude\nsession: 2d8b4f6a-1c3e-4a5b-8d7f-0e9c1b2a3d4e\n---\n# Handover: search\n\n## You\n- [ ] Review PR #42 before it merges\n\n## Agent\n- Add pagination tests for /search\n- Update the API docs\n' >"$w/acme-api/.hermes/plans/2025-01-01-search-handover.md"
+  printf -- '---\ntitle: FAQ page\napp: pi\nsession: e5a1b7c3-9d2f-4e8a-b6c0-1f3e5d7a9b2c\n---\n# Handover: FAQ\n\n## You\n- [x] Pick the order of the questions\n- [ ] Approve the draft\n\n## Agent\n- Publish the FAQ once approved\n' >"$w/docs-site/.hermes/plans/2025-01-02-faq-handover.md"
   mkdir -p "$DEMO/bin"
   cat >"$DEMO/bin/gh" <<'GH'
 #!/bin/sh
@@ -146,7 +151,7 @@ PY
   # Demo stays isolated: copy this checkout directly, never run the installer.
   mkdir -p "$HERDR_APP_HOME/mods" "$HERDR_APP_HOME/layouts"
   local m
-  for m in agents-ids spaces-plus sysstat sessions usage md-open copy-on-select; do
+  for m in agents-ids spaces-plus sysstat sessions usage md-open copy-on-select handovers; do
     mkdir -p "$HERDR_APP_HOME/mods/$m"
     rsync -a --delete "$REPO/$m/mods/$m/" "$HERDR_APP_HOME/mods/$m/"
   done
@@ -250,6 +255,12 @@ PY
   do_ overlay.close
   python3 -c 'import sys; from PIL import Image; Image.open(sys.argv[1]).crop(tuple(map(int, sys.argv[3].split()))).save(sys.argv[2])' "$DEMO/menu.png" "$REPO/docs/sort-menu.png" "$CROP_MENU"
   echo "  docs/sort-menu.png <- $CROP_MENU"
+  # The Handovers panel opens as a window in the middle.
+  do_ mod.open '{"name":"handovers"}'; sleep 3
+  herdr-app shot "$DEMO/handovers.png" >/dev/null
+  do_ overlay.close
+  python3 -c 'import sys; from PIL import Image; Image.open(sys.argv[1]).crop(tuple(map(int, sys.argv[3].split()))).save(sys.argv[2])' "$DEMO/handovers.png" "$REPO/handovers/preview.png" "$CROP_HANDOVERS"
+  echo "  handovers/preview.png <- $CROP_HANDOVERS"
 }
 
 stop() {

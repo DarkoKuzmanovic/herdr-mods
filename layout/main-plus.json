@@ -168,6 +168,16 @@
               }
             },
             {
+              "id": "handovers",
+              "type": "block",
+              "content": {
+                "mod": "handovers"
+              },
+              "size": {
+                "px": 112
+              }
+            },
+            {
               "id": "usage",
               "type": "block",
               "content": {

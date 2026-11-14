@@ -16,6 +16,7 @@ integrations that make coding agents report their session IDs to it:
 | `sessions/` | Search past Hermes, Pi and PiG sessions (overlay) and resume one in a new tab |
 | `usage/` | Status bar: AI provider quota from a configured collector command (Kuota JSON) |
 | `md-open/` | Picker of markdown paths in the focused terminal; opens one in `fresh` in a split |
+| `handovers/` | Status-bar count and panel of repo handover notes (`.hermes/plans/*-handover.md`); New agent / Old session / Note |
 | `integrations/bin/agent-session-label` | The one script every hook calls; writes the labels |
 | `integrations/{pi,opencode,hermes}/` | Pi/PiG extension, OpenCode TUI plugin, Hermes plugin |
 | `install.sh` | Copies mods, links integrations, adds Claude Code / Codex hooks, once |
@@ -86,8 +87,8 @@ on herdr.dev (a layout package would need its own copies of the mods); it lives 
 Run all of these before every commit; all must pass:
 
 ```sh
-for m in agents-ids spaces-plus sysstat sessions usage md-open copy-on-select; do node $m/mods/$m/test_logic.mjs && herdr-app check $m/mods/$m; done
-python3 -I tests/test_label.py && python3 -I tests/test_hermes_plugin.py && python3 -I tests/test_sessions_search.py && python3 -I tests/test_session_names.py && python3 -I tests/test_procs.py && node tests/test_pi.mjs
+for m in agents-ids spaces-plus sysstat sessions usage md-open copy-on-select handovers; do node $m/mods/$m/test_logic.mjs && herdr-app check $m/mods/$m; done
+python3 -I tests/test_label.py && python3 -I tests/test_hermes_plugin.py && python3 -I tests/test_sessions_search.py && python3 -I tests/test_session_names.py && python3 -I tests/test_procs.py && python3 -I tests/test_handovers.py && node tests/test_pi.mjs
 shellcheck -S warning install.sh scripts/demo.sh
 ```
 

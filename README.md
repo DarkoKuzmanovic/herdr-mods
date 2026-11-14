@@ -15,6 +15,7 @@ search over every past session, and the markdown files an agent just wrote, one 
 | [**sessions**](sessions/RECIPE.md) | A search box over past Hermes, Pi and PiG sessions (title, folder, matching text); Enter resumes the picked one in a new tab. |
 | [**usage**](usage/RECIPE.md) | The busiest AI provider quota in the status bar behind a gauge icon (`codex 31%`, red from 90%), a card with a bar per quota window and its reset time on hover, click to update, a toast at 85% and 95%. Reads JSON from a command you set ([Kuota](https://github.com/DarkoKuzmanovic/kuota)'s collector format). |
 | [**md-open**](md-open/RECIPE.md) | Lists the markdown, HTML and PDF files named in the focused terminal (plans, reports an agent just wrote), newest first; Enter opens markdown in [`fresh`](https://github.com/sinelaw/fresh) in a split to the right, HTML and PDF in your browser or PDF viewer. |
+| [**handovers**](handovers/RECIPE.md) | The handover notes agents leave in your repos (`.hermes/plans/*-handover.md`, [format](docs/handovers.md)), counted in the status bar (red when one has a step for you) and listed in a panel: tick off your part, **New agent** starts a fresh agent that reads the note, **Old session** reopens the session that wrote it. |
 | [**copy-on-select**](copy-on-select/RECIPE.md) | Shift-drag a selection in any terminal and it's copied once the pointer settles, with a *Copied* toast. Plain drags copy nothing. Linux-friendly: no OS helper. |
 
 <p>
@@ -51,7 +52,8 @@ itself the first time Herdr sees it).
 
 `sessions` opens as a dialog; bind a key to it in `~/.config/herdr-app/keys.json` (the installer
 doesn't touch your keys): `"ctrl-shift-s": "mod.open:sessions"`. `md-open` the same way, e.g.
-`"alt-o": "mod.open:md-open"`. `agents-ids`' Save & close sessions and Reopen are key commands:
+`"alt-o": "mod.open:md-open"`, and the Handovers panel, e.g. `"ctrl-shift-h": "mod.open:handovers"`
+(its badge in `main-plus`'s status row opens it too). `agents-ids`' Save & close sessions and Reopen are key commands:
 `"ctrl-shift-u": "agents-ids.unload"`, `"ctrl-shift-alt-u": "agents-ids.load"`; `agents-ids.sort` opens the sort menu.
 
 `usage` shows nothing until you give it a command in its layout block's props:

@@ -8,6 +8,10 @@ a version (see [AGENTS.md](AGENTS.md#releases)).
 
 ## [Unreleased]
 
+### Added
+
+- **handovers:** a new mod for the handover notes agents leave in a repo (`.hermes/plans/*-handover.md`): a status-bar count, red when a note has a step for you, and a panel (Ctrl+Shift+H in the README's keys) where you tick off your steps, mark a note done, and start a **New agent** that reads the note, reopen the **Old session** that wrote it, or open the **Note**. The note format is in `docs/handovers.md`; `main-plus` has the badge.
+
 ## [0.12.0] - 2026-11-13
 
 ### Added
