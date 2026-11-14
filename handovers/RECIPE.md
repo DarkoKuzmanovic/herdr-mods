@@ -20,7 +20,7 @@ Then each `## You` item with a box (`☐` in `blocked`, `☑` in `done` with the
 clicking the item ticks or unticks it in the file. Then up to four `## Agent` items. Then three buttons:
 
 - **New agent**: a new tab in the note's repo, named after the note, with a fresh agent (`app:` in the
-  note, Hermes by default) whose first message is "Read <note> and continue the work it hands over…".
+  note, Hermes by default) whose first message asks it to read the note, sum up where things stand and what it would do next, and wait for a go.
   Hermes gets it as `hermes chat --tui -q <message>`; other agents through `tab.new`'s `task`.
 - **Old session**: only when the note has a plain `session:` id (`^[\w.-]{4,128}$`): reopens that session in
   a new tab (`hermes --tui --resume <id>`, `claude --resume <id>`, …).

@@ -6,7 +6,7 @@ const note = (o = {}) => ({ path: "/home/alex/acme/.hermes/plans/x-handover.md",
 assert.equal(agentOf(note({ app: "Claude" })), "claude");
 assert.equal(agentOf(note({ app: "__proto__" })), "hermes");
 assert.deepEqual(continueTab(note()).argv.slice(0, 4), ["hermes", "chat", "--tui", "-q"]);
-assert.match(continueTab(note()).argv[4], /^Read \/home\/alex\/acme\/.hermes\/plans\/x-handover.md /);
+assert.match(continueTab(note()).argv[4], /^Read \/home\/alex\/acme\/.hermes\/plans\/x-handover.md, .* wait for my go/);
 assert.equal(continueTab(note()).task, undefined);
 assert.deepEqual(continueTab(note({ app: "claude" })).argv, ["claude"]);
 assert.match(continueTab(note({ app: "claude" })).task, /^Read /);

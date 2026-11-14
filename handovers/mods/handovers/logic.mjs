@@ -28,7 +28,8 @@ export function resumeArgv(note) {
 }
 
 /** The first message Continue gives the fresh agent. */
-export const continueTask = (note) => `Read ${note.path} and continue the work it hands over. It is a handover note; its "## You" list is mine, don't do those.`;
+// The agent reads and reports first: a note's "## Agent" list can mean logins or production, so the person says go.
+export const continueTask = (note) => `Read ${note.path}, a handover note. Tell me in a few lines where things stand and what you'd do next from its "## Agent" list, then wait for my go before doing anything. Its "## You" list is mine.`;
 
 /** Notes from the helper's JSON, with the machine they came from; junk dropped. */
 export function parseNotes(json, machine) {
