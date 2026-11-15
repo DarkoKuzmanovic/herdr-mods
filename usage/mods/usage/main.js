@@ -1,6 +1,6 @@
 import { View, div, svg } from "gpui-kit";
 import { h_flex, v_flex, HoverCard } from "gpui-base";
-import { exec, notify, props, theme } from "herdr";
+import { exec, notify, props, readTextFile, theme } from "herdr";
 import { parse, busiest, card, level, warnings } from "./logic.mjs";
 
 export default class Usage extends View {
@@ -8,6 +8,8 @@ export default class Usage extends View {
     const config = props() || {};
     this.command = Array.isArray(config.command) && config.command.length && config.command.every((s) => typeof s === "string") && config.command[0] ? config.command : null;
     this.on = typeof config.on === "string" && config.on ? config.on : null;
+    // Herdr calls this computer null, so `on` naming it would fail; a layout synced between machines needs that.
+    this.local = readTextFile("/etc/hostname").then((h) => h?.trim() || null, () => null);
     this.providers = null;
     this.error = null;
     this.at = null;
@@ -23,7 +25,8 @@ export default class Usage extends View {
     cx.spawn(async (cx) => {
       try {
         // Herdr exec runs this configured argv directly, without a shell.
-        const result = await exec(this.command[0], this.command.slice(1), { on: this.on });
+        const on = this.on && this.on !== (await this.local) ? this.on : null;
+        const result = await exec(this.command[0], this.command.slice(1), { on });
         if (result.code !== 0) throw new Error(`Command failed (exit ${result.code})`);
         this.providers = parse(result.stdout);
         this.error = null;

@@ -1,7 +1,7 @@
 // CPU (with a one-minute sparkline), memory and, on amdgpu, GPU load and VRAM of the machine the
 // shown space lives on, read from its /proc and /sys every 2 s (a remote space's through herdr-core).
 // Click: btop (else htop, else top) in a new tab of the shown space.
-import { View, div } from "gpui-kit";
+import { View, div, svg } from "gpui-kit";
 import { h_flex, v_flex, HoverCard } from "gpui-base";
 import { exec, readTextFile, run, spaces, theme } from "herdr";
 import { SAMPLES, cpuPercent, cpuTimes, gib, gpu, memory, push, spread } from "./logic.mjs";
@@ -76,7 +76,8 @@ export default class Sysstat extends View {
       .text_size(11.8).hover((s) => s.bg(t.hover))
       .on_click(() => this.openMonitor())
       .child(HoverCard.new("sysstat-card").open_delay(250).anchor("bottom_center").content(this.card(t)).trigger(h_flex().h_full().gap(6).items_center()
-      .when(Boolean(this.machine), (el) => el.child(div().flex_shrink(1).min_w(0).truncate().text_color(t.accent).child(this.machine)))
+      // The remote machine as Spaces draws it; its name is in the hover card.
+      .when(Boolean(this.machine), (el) => el.child(svg("mods/workspace-chrome/server.svg").size(13).flex_none().text_color(t.accent)))
       .when(this.error, (el) => el.child(value("CPU / MEM unavailable")))
       .when(!this.error, (el) => el
         .child(label("CPU")).child(value(this.cpu === null ? "—" : `${this.cpu}%`, this.cpu ?? 0)).child(spark)

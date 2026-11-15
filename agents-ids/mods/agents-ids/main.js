@@ -939,7 +939,9 @@ export default class Agents extends View {
           .child(ids)
           .when(Boolean(doing), (el) => el.child(this.marquee(div().id(`third-${a.address}`).min_w(0).text_size(11).text_color(doing.stale ? t.blocked : doing.you ? t.accent : t.dim), `third-${a.address}`, doing.text, doing.tip || doing.text, this.hovered === a.address)))
           .when(Boolean(herdLine), (el) => el.child(div().min_w(0).truncate().text_size(11).text_color(t.muted).child(herdLine))))
-        .when(Boolean(machine), el => el.child(div().text_size(10).text_color(t.dim).child(machine)))
+        // An icon, not the name, so a remote agent's title isn't cut short; the name is in the tooltip.
+        .when(Boolean(machine), el => el.child(div().id(`machine-${a.address}`).flex_none().tooltip(`on ${machine}`)
+          .child(svg("mods/workspace-chrome/server.svg").size(12).text_color(t.dim))))
         .when(kin > 0, el => el.child(fold(a, subs, mates)))
         .when(this.hovered === a.address && !this.selecting, el => el.child(pin).child(this.xButton(t, `close-${a.address}`, "Check before closing agent", () => this.askClose(a.address))))
         .when(this.hovered !== a.address && Boolean(when), el => el.child(div().flex_none().text_size(11).text_color(t.dim).child(duration(now - when))))

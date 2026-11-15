@@ -23,7 +23,8 @@ seconds, for example:
 ```
 
 Use the absolute path to your own Kuota collector. Without `command`, the block is blank. `on`
-selects the machine where the collector is installed; omit it for this computer. Refresh defaults to
+selects the machine where the collector is installed; omit it for this computer. Naming this computer
+also runs it here, so one layout can be shared between machines. Refresh defaults to
 300 seconds. The command is run directly, not through a shell; use paths rather than `~` expansion.
 It must print Kuota schema-v2 JSON. A failure keeps the last good reading and adds a dim `!` with
 the error in the card's footer; Herdr limits each execution to 30 seconds. Only one run may be in flight.

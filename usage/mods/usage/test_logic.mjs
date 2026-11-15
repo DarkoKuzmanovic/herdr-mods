@@ -37,41 +37,50 @@ assert.equal(busiest(parse('{"providers":[{"id":"x","state":"ok","windows":[{"us
 const source = (await readFile(new URL("./main.js", import.meta.url), "utf8"))
   .replace('import { View, div, svg } from "gpui-kit";', 'const { View, div, svg } = globalThis.usageMock;')
   .replace('import { h_flex, v_flex, HoverCard } from "gpui-base";', 'const { h_flex, v_flex, HoverCard } = globalThis.usageMock;')
-  .replace('import { exec, notify, props, theme } from "herdr";', 'const { exec, notify, props, theme } = globalThis.usageMock;')
+  .replace('import { exec, notify, props, readTextFile, theme } from "herdr";', 'const { exec, notify, props, readTextFile, theme } = globalThis.usageMock;')
   .replace('"./logic.mjs"', JSON.stringify(new URL("./logic.mjs", import.meta.url).href));
 let config = { command: ["cat", "fixture"], on: "workstation", every: 5 }, resolve, reject, calls = [], pending, interval, tick;
 const toasts = [], store = new Map();
 globalThis.localStorage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, String(v)) };
 globalThis.usageMock = {
   View: class {}, div: () => {}, svg: () => {}, h_flex: () => {}, theme: () => ({}), props: () => config, notify: (n) => toasts.push(n),
+  readTextFile: async (path) => (path === "/etc/hostname" ? "here\n" : null),
   exec: (...args) => { calls.push(args); return new Promise((yes, no) => { resolve = yes; reject = no; }); }
 };
 const { default: Usage } = await import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`);
 const cx = { notify() {}, spawn(fn) { pending = fn(cx); }, timer: { every(ms, fn) { interval = ms; tick = fn; } } };
+// exec waits for the hostname read, so let it settle before looking at the calls.
+const settle = () => new Promise((r) => setImmediate(r));
 const view = new Usage();
 view.init(undefined, cx);
+await settle();
 assert.equal(interval, 5000);
 assert.deepEqual(calls[0], ["cat", ["fixture"], { on: "workstation" }]);
 tick(cx);
+await settle();
 assert.equal(calls.length, 1, "refresh must not overlap a pending exec");
 resolve({ code: 0, stdout: sample });
 await pending;
 assert.equal(busiest(view.providers).id, "codex");
 tick(cx);
+await settle();
 reject(new Error("timed out"));
 await pending;
 assert.equal(view.error, "timed out");
 assert.equal(busiest(view.providers).id, "codex", "failure retains the last good snapshot");
 tick(cx);
+await settle();
 resolve({ code: 2, stdout: sample });
 await pending;
 assert.match(view.error, /exit 2/);
 tick(cx);
+await settle();
 resolve({ code: 0, stdout: "bad JSON" });
 await pending;
 assert.ok(view.error);
 assert.equal(busiest(view.providers).id, "codex");
 tick(cx);
+await settle();
 resolve({ code: 0, stdout: sample });
 await pending;
 assert.equal(view.error, null);
@@ -80,4 +89,9 @@ const empty = new Usage();
 empty.init(undefined, cx);
 assert.equal(empty.command, null);
 assert.equal(calls.length, 5);
+// `on` naming this computer runs here: Herdr only knows it as null.
+config = { command: ["cat"], on: "here" };
+new Usage().init(undefined, cx);
+await settle();
+assert.deepEqual(calls[5], ["cat", [], { on: null }]);
 console.log("usage logic and polling ok");

@@ -8,6 +8,15 @@ a version (see [AGENTS.md](AGENTS.md#releases)).
 
 ## [Unreleased]
 
+### Changed
+
+- **agents-ids, sysstat:** an agent or stats bar on another machine shows that machine's Spaces icon instead of its name, so an agent's title isn't cut short; hover the agent's icon (or open the stats card) for the name.
+- **spaces-plus:** a machine row's space count reads `(2)` rather than a bare `2` after the name.
+
+### Fixed
+
+- **usage:** `on` naming the computer Herdr runs on now runs the collector there instead of failing, so one layout with `"on": "<desktop>"` works on both the desktop and a laptop it's synced to.
+
 ## [0.13.0] - 2026-11-14
 
 ### Added

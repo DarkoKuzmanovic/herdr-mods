@@ -460,7 +460,7 @@ export default class Spaces extends View {
         })
         .child(svg(`mods/workspace-chrome/${m ? "server" : "monitor"}.svg`).size(13).flex_none())
         .when(!collapsed, el => el.child(div().flex_shrink(1).min_w(0).truncate().child(m ?? "This computer"))
-          .when(mine.length > 0, el => el.child(div().flex_none().child(String(mine.length))))
+          .when(mine.length > 0, el => el.child(div().flex_none().child(`(${mine.length})`)))
           .child(div().flex_1())
           .when(connected && Boolean(this.load[m ?? ""]), el => el.child(this.loadChip(this.load[m ?? ""], t, m)))
           .when(Boolean(m) && connected && !this.load[m], el => el.child(div().flex_none().text_size(10.5).text_color(t.ansi2).child("connected")))
