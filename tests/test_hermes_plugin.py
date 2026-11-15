@@ -55,6 +55,11 @@ calls.clear()
 hooks["pre_llm_call"](platform="tui", session_id="s1")  # a new turn clears them
 assert calls[0][0] == ["hc", "label", "t9", "agent.next=", "agent.needs=", "agent.waiting="], calls
 m._waiting = lambda sid: ""
+# The background review after a turn shares the session id and calls tools: the row stays "done".
+hooks["post_llm_call"](platform="tui", session_id="s1", assistant_response="Done.")
+calls.clear()
+hooks["pre_tool_call"](session_id="s1", tool_name="skill_manage", args={})
+assert calls == [], calls
 
 # The Next line and whether it needs the human.
 nl = m.next_line

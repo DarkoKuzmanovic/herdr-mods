@@ -286,6 +286,12 @@ def _post(**kwargs):
 
 
 def _tool(**kwargs):
+    # Only inside a turn: the background review that runs after a turn shares its session_id and calls
+    # tools (skill_manage, memory) with no post_llm_call after them, which left "running: tool" for hours.
+    where = _where(kwargs)
+    with _lock:
+        if not where or _sid(kwargs) not in _turns.get(where[0], ()):
+            return
     name = kwargs.get("tool_name")
     if name not in {"terminal", "read_file", "write_file", "patch", "search_files", "web_search", "web_extract", "delegate_task"}:
         name = "tool"
