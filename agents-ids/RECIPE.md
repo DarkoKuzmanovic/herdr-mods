@@ -9,31 +9,40 @@ ended, each with a **Resume** button that reopens it.
 ![Agents with IDs](preview.png)
 
 **What you see:** the shipped `agents` mod unchanged (groups by status, sort menu, pins, sub-agents),
-except each row is 44px tall instead of 30px and has two lines:
+except the panel text is 12px instead of 13px and each row is 38px tall instead of 30px, with two lines:
 
 1. The agent icon, the space name, `· <tab title>` in the dim color, the age and the status mark, as in
    the shipped mod.
-2. 11px text: the terminal address in the theme `accent` color, then `· <short session id>` in `dim`.
-   Without a session ID only the address shows. A remote agent shows its address without the machine
+2. 10.5px text: the terminal address in the theme `accent` color, then what the agent is doing (below);
+   with nothing to show there, `· <short session id>` in `dim` (the full ID is always in the line's tooltip).
+   Without either only the address shows. A remote agent shows its address without the machine
    (`t5c`, not `laptop/t5c`): the machine is already named on the right.
-3. When the agent sets `agent.doing`: what it is doing now and for how long (`running: git · 4m`), amber
+   When the agent sets `agent.doing`, that part is what it is doing now and for how long (`running: git · 4m`), amber
    once it has been on the same thing for over 30 minutes. Then, or when the agent has been `blocked`
    for over 5 minutes, post one Herdr notification (`notify()`, warning, with `playSound("blocked")`)
    whose click runs `agent.focus` on it: once per stall (remembered in `localStorage`, also across
    restarts), again only when the doing line or the state changes and stalls anew.
 
+**Right-click** an agent row for its menu, a popup copy of the mod at the pointer (`agentMenu` in
+`extras.mjs` lists the items, leaving out what doesn't apply): Go to agent, Peek (`terminal.peek`); Open
+brief and Go to lead for a herd member; Fold/Show workers for a row with nested ones; Copy session ID,
+Copy address, Copy resume command (the argv Resume would run); Pin/Unpin, Rename tab (`tab.rename`),
+Send to several (the list starts picking with this agent picked), Put tab away (`tab.settle`); Close…
+(the check below). Pick and fold change the list's own state, so the popup asks it through
+`shared("agents-ids.ask")` = `{ act, address, at }`.
+
 An X on each agent row opens a check of what closing it would lose (still working, uncommitted changes,
 sub-agents, and for a herd lead `Herd: N tabs still open (they keep running)`) before it ends the
 terminal; it refuses if the terminal changed meanwhile.
 
-**Next line and waiting** (labels in the repo's `docs/labels.md`): once an agent is done or idle, its third
-line is `→ <agent.next>` (`dim`; `accent` when `agent.needs` is `you`), else `waiting: <agent.waiting> · 4m`,
+**Next line and waiting** (labels in the repo's `docs/labels.md`): once an agent is done or idle, its doing
+part is `→ <agent.next>` (`dim`; `accent` when `agent.needs` is `you`), else `waiting: <agent.waiting> · 4m`,
 else the `agent.doing` line. The row's status follows: `agent.needs=you` with a Next line is *asks*, a
 `Your turn` pill (`accent`; `?` where the header says Needs you) sorted with Needs you; `agent.waiting` is
 *waiting*, a clock icon in its own **Waiting** section after Working. A running or blocked agent always
 shows Herdr's own status.
 
-A third line too long for the row runs as a **ticker** while the pointer is on the row: after a second it
+A doing part too long for the row runs as a **ticker** while the pointer is on the row: after a second it
 slides left at about 55 px/s, two copies 40 px apart, natively (`.transition("left")`; one timer per lap puts
 a fresh element id back at 0, which looks the same). A mod can't measure text before drawing it, so the line
 and text widths come from `on_mouse_move` bounds; the lap time reads them when it starts, not at the first
@@ -52,7 +61,7 @@ herd member. A lead row gets a line `herd · 3 working · 1 needs you · 1 done`
 leave their own place and nest under the lead (one level, tree lines like sub-agents, folding with its
 chevron), and the lead takes its most urgent member's section. Elsewhere members stay in their space or
 project with a `↳ <lead>` chip that focuses the lead; a member whose lead is gone says `lead gone`. A member
-with `agent.brief` shows the brief's short name (no date prefix or extension); a click opens it, markdown
+with `agent.brief` shows the brief's short name (no date prefix or extension); a click opens it (focusing a `fresh` pane in that tab already showing it, else stacking below the tab's last `fresh` pane), markdown
 in `fresh` in a split beside the member like md-open, anything else with `cx.open_url`.
 
 **Send to several**: a pen icon left of the box icon turns picking on. Each row gets a check box and a click picks it

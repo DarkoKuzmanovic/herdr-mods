@@ -11,18 +11,18 @@ machine offers its recently closed spaces back.
 **What you see:** the shipped `spaces` mod (colored letter avatars, machines, worktrees under their
 checkout, drag to reorder), with:
 
-- **A second line** (11px, `dim`) when there is something to say: the repo name if it differs from the
+- **Details after the name** on the same line (10.5px, `dim`; the list's own text is 12px, the name capped at 120px) when there is something to say: the repo name if it differs from the
   space name, the branch unless it's `main`/`master`, `↑n` (`ansi2`) and `↓n` (`ansi1`) ahead/behind,
   `n changed` (tracked changes, conflicts and untracked files), and `n tabs` when there are 2 or more.
-  Without git it shows the folder (`~/…`) when there are 2 or more tabs. Rows with a second line are
-  40px tall; others keep the shipped 30px.
+  Without git it shows the folder (`~/…`) when there are 2 or more tabs. Every space row is
+  26px tall, so more spaces fit.
 - **Status on the right**, the space's most urgent agent: a `Needs you` pill (10.5px semibold, theme
   `blocked` color on a 15% tint of it) when blocked, the `workspace-chrome` spinner in `working` when
   working, a 7px `done` dot when done, nothing when idle.
 - **The active space's tabs** under it (22px rows, indented 35px) when it has 2 or more: `1 · <title>`
   and `working 12m` / `needs you` / `done` in that status' color. Settled tabs fold into
   `› n tabs put away`; click to unfold.
-- **Ports**, `:5173` chips in `accent` at the end of the second line (or after the branch on a worktree
+- **Ports**, `:5173` chips in `accent` at the end of the details (or after the branch on a worktree
   row): TCP ports that programs running in the space's folder listen on. Hover: program and address;
   click: opens `http://localhost:5173` (`http://<machine>:5173` for a remote space) in the browser. A
   WSL machine under the Windows app keeps `localhost` (WSL forwards it; its Herdr name resolves

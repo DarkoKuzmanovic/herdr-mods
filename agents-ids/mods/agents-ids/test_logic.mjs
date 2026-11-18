@@ -1,6 +1,6 @@
 // Self-check for agents-ids: node mods/agents-ids/test_logic.mjs
 import assert from "node:assert/strict";
-import { briefName, effStatus, herds, herdSummary, inputBox, thirdLine, agentKey, sessionFromArgv, closeFacts, sameTerminal, doingLine, stalls, hideSession, projectOf, recentSessions, rememberSessions, reopenable, reopenSpace, reopenSummary, resumeArgv, resumeSpace, runningSids, shortSid, snapshotOf, snapshotPath, unloadRows, ICON_SETS, iconSet } from "./extras.mjs";
+import { agentMenu, briefName, briefTarget, effStatus, herds, herdSummary, inputBox, thirdLine, agentKey, sessionFromArgv, closeFacts, sameTerminal, doingLine, stalls, hideSession, projectOf, recentSessions, rememberSessions, reopenable, reopenSpace, reopenSummary, resumeArgv, resumeSpace, runningSids, shortSid, snapshotOf, snapshotPath, unloadRows, ICON_SETS, iconSet } from "./extras.mjs";
 import { existsSync } from "node:fs";
 
 const identity = { address: "t1", state: "live", created_ms: 7, labels: { "agent.session": "one" } };
@@ -188,7 +188,23 @@ assert.equal(herdSummary(["working", "asks", "blocked", "done", "idle", "waiting
 assert.equal(herdSummary([]), "herd");
 assert.equal(briefName({ "agent.brief": "/home/alex/briefs/2026-11-12-fix.md" }), "fix");
 assert.equal(briefName({ "agent.brief": "/home/alex/BRIEF.md" }), "BRIEF");
+{
+  const fr = (pane, tab, title) => ({ pane, tab, title, terminal: "t" + pane, program: { name: "fresh" } });
+  const p = "/home/alex/acme/.hermes/plans/2026-11-12-fix.md";
+  assert.deepEqual(briefTarget([], "a", "p1", p), { pane: "p1", direction: "right" });
+  assert.deepEqual(briefTarget([fr("p9", "b", "x.md \u2014 acme \u2014 Fresh")], "a", "p1", p), { pane: "p1", direction: "right" });
+  assert.deepEqual(briefTarget([fr("p2", "a", "other.md \u2014 acme \u2014 Fresh"), fr("p3", "a", "more.md \u2014 acme \u2014 Fresh")], "a", "p1", p), { pane: "p3", direction: "down" });
+  assert.deepEqual(briefTarget([fr("p2", "a", ".hermes/plans/2026-11-12-fix.md \u2014 acme \u2014 Fresh")], "a", "p1", p), { focus: "p2" });
+}
 assert.equal(briefName({}), "");
+{
+  const acts = (m) => agentMenu(m).map((i) => i && i[1]);
+  assert.deepEqual(acts({ app: "zsh" }), ["go", "peek", null, "copy-address", null, "pin", "rename", "pick", "settle", null, "close"]);
+  const full = agentMenu({ sid: "abcd1234", app: "hermes", pinned: true, brief: "fix", lead: "t1", workers: 2 });
+  assert.deepEqual(full.map((i) => i && i[1]), ["go", "peek", null, "brief", "lead", null, "fold", null, "copy-sid", "copy-address", "copy-resume", null, "pin", "rename", "pick", "settle", null, "close"]);
+  assert.equal(full[12][0], "Unpin");
+  assert.ok(!acts({ sid: "x y; rm -rf", app: "hermes" }).includes("copy-resume")); // unsafe id: no resume command
+}
 const BAR = " ─ ready │ opus 5.5 │ 80k/500k\n";
 assert.equal(inputBox("hermes", "  ❯ old message in the transcript\n...\n" + BAR + " ❯\n\n"), "");
 assert.equal(inputBox("hermes", BAR + " ❯ Ctrl+C to interrupt…"), "");

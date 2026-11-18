@@ -10,7 +10,7 @@
 import { View, div, image, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
 import { agents, terminals, panes, focused, spaces, run, theme, shared, setShared, setAgentOrder, openOverlay, closeOverlay, props, window, layout, exec, notify, playSound, appHome, readTextFile, home, writeTextFile, nextCommand, machines } from "herdr";
-import { briefName, closeFacts, effStatus, herds, herdSummary, inputBox, sameTerminal, thirdLine, hideSession, machineOf, projectOf, recentSessions, rememberSessions, resumeSpace, shortSid, stalls, reopenable, reopenSpace, reopenSummary, resumeArgv, runningSids, snapshotOf, snapshotPath, unloadRows, ICON_SETS, iconSet } from "./extras.mjs";
+import { agentMenu, briefName, briefTarget, closeFacts, effStatus, herds, herdSummary, inputBox, sameTerminal, thirdLine, hideSession, machineOf, projectOf, recentSessions, rememberSessions, resumeSpace, shortSid, stalls, reopenable, reopenSpace, reopenSummary, resumeArgv, runningSids, snapshotOf, snapshotPath, unloadRows, ICON_SETS, iconSet } from "./extras.mjs";
 
 // agents-ids: the snapshot is written on this computer, its folder made first.
 async function writeSnapshot(snap) {
@@ -78,6 +78,13 @@ const SORTS = [
   { id: "project", label: "Grouped by project", icon: "folder" }, // agents-ids
 ];
 // agents-ids: also the key command agents-ids.sort (the demo opens it for its screenshot).
+// agents-ids: the brief a herd member works from opens beside it (markdown in `fresh`, like md-open),
+// anything else with the system opener. `a`: the agent's { tab, pane }.
+function openBrief(a, path, cx) {
+  if (!/\.(md|markdown)$/i.test(path)) return cx.open_url(`file://${path.split("/").map(encodeURIComponent).join("/")}`);
+  const at = briefTarget(panes(), a.tab, a.pane, path);
+  at.focus ? run("pane.focus", { pane: at.focus }) : run("pane.split", { ...at, argv: ["fresh", path] });
+}
 const openSortMenu = () => openOverlay({ mod: "agents-ids", kind: "popup", width: 250, height: 341, props: { sortMenu: true } });
 const sortOf = () => SORTS.find((s) => s.id === shared("agents.sort")) ?? SORTS[0];
 const SECTION = { 4: "Needs you", 3: "Done", 2: "Working", 1.5: "Waiting", 1: "Idle" };
@@ -115,7 +122,7 @@ export default class Agents extends View {
       });
       return;
     }
-    if (props()?.sortMenu) return;
+    if (props()?.sortMenu || props()?.agentMenu) return;
     if (props()?.unload) return this.initUnload(cx); // agents-ids
     this.folded = new Set();
     // agents-ids: each folder's git common dir (null: not a repo, or not asked yet), for "Grouped by project".
@@ -131,6 +138,7 @@ export default class Agents extends View {
     this.remembered = JSON.parse(localStorage.getItem("sessions") ?? "{}");
     // agents-ids: "Send to several": picked agents and the message box.
     this.picked = new Set();
+    this.askAt = shared("agents-ids.ask")?.at; // agents-ids: the last right-click menu request this copy has seen
     this.msg = InputState.new({ placeholder: "Message to the picked agents…" });
     this.msg.on("submit", (_e, cx) => this.sendPicked(cx));
     cx.timer.every(30000, (cx) => cx.notify());
@@ -261,6 +269,34 @@ export default class Agents extends View {
 
   peek(addr) {
     run("terminal.peek", { terminal: addr });
+  }
+
+  // agents-ids: an agent row's right-click menu, a popup copy of this mod; props().agentMenu describes the agent.
+  agentMenuView(t) {
+    const m = props().agentMenu;
+    const act = (id, cx) => {
+      closeOverlay(props().overlay);
+      if (id === "go") run("pane.focus", { pane: m.pane });
+      else if (id === "peek") this.peek(m.address);
+      else if (id === "brief") openBrief(m, m.briefPath, cx);
+      else if (id === "lead") run("pane.focus", { pane: m.leadPane });
+      else if (id === "copy-sid") cx.write_to_clipboard(m.sid);
+      else if (id === "copy-address") cx.write_to_clipboard(m.address);
+      else if (id === "copy-resume") cx.write_to_clipboard(resumeArgv(m.app, m.sid).join(" "));
+      else if (id === "pin") run("terminal.pin", { terminal: m.address, pinned: !m.pinned });
+      else if (id === "rename") run("tab.rename", { id: m.tab });
+      else if (id === "settle") run("tab.settle", { id: m.tab });
+      else if (id === "close") this.askClose(m.address);
+      else setShared("agents-ids.ask", { act: id, address: m.address, at: Date.now() }); // pick, fold
+    };
+    return v_flex().w_full().p(5).bg(t.popover).text_size(12.5)
+      .children(agentMenu(m).map((it, i) => it
+        ? h_flex().id(`am-${it[1]}`).h(28).px(8).gap(9).rounded(7).items_center().hover((el) => el.bg(t.hover))
+          .text_color(it[1] === "close" ? t.blocked : t.foreground)
+          .on_click((_e, cx) => act(it[1], cx))
+          .child(svg(`mods/workspace-chrome/${it[2]}.svg`).size(14).flex_none().text_color(it[1] === "close" ? t.blocked : t.muted))
+          .child(div().flex_1().min_w(0).truncate().child(it[0]))
+        : div().id(`am-sep-${i}`).mx(7).my(4).h(1).flex_none().bg(t.border)));
   }
 
   // agents-ids: an ended session reopens in a new tab, never typed into its old terminal (that would
@@ -709,7 +745,15 @@ export default class Agents extends View {
     const t = theme();
     if (props()?.closeTarget) return this.closeDialog(t);
     if (props()?.sortMenu) return this.sortMenu(t);
+    if (props()?.agentMenu) return this.agentMenuView(t); // agents-ids
     if (props()?.unload) return this.unloadPanel(t); // agents-ids
+    // agents-ids: the right-click menu (another copy of this mod) asks the list to pick or fold an agent.
+    const ask = shared("agents-ids.ask");
+    if (ask && ask.at !== this.askAt) {
+      this.askAt = ask.at;
+      if (ask.act === "pick") { this.selecting = true; this.picked.add(ask.address); }
+      else if (ask.act === "fold") this.folded.has(ask.address) ? this.folded.delete(ask.address) : this.folded.add(ask.address);
+    }
     const collapsed = narrow();
     const sort = sortOf();
     let list = agents();
@@ -817,11 +861,6 @@ export default class Agents extends View {
       if (detail.get(a.address) == null && seen[`${a.space_name}\u0000`] > 1) detail.set(a.address, label(a));
     }
 
-    // agents-ids: the brief a herd member works from opens beside it (markdown in `fresh`, like md-open),
-    // anything else with the system opener.
-    const openBrief = (a, path, cx) => /\.(md|markdown)$/i.test(path)
-      ? run("pane.split", { direction: "right", pane: a.pane, argv: ["fresh", path] })
-      : cx.open_url(`file://${path.split("/").map(encodeURIComponent).join("/")}`);
     const togglePick = (a, cx) => {
       this.picked.has(a.address) ? this.picked.delete(a.address) : this.picked.add(a.address);
       cx.notify();
@@ -885,7 +924,7 @@ export default class Agents extends View {
       const ids = h_flex()
         .id(`ids-${a.address}`)
         .min_w(0)
-        .text_size(11)
+        .text_size(10.5)
         .tooltip(sid ? `terminal ${a.address}\nsession ${sid}\nctrl-click: copy session id \u00b7 shift-click: copy address` : `terminal ${a.address}\nshift-click: copy address`)
         .on_click((e, cx) => {
           // agents-ids: a plain click falls through to the row; only ctrl/shift copy.
@@ -896,7 +935,9 @@ export default class Agents extends View {
         })
         // agents-ids: the machine shows at the right, so a remote address keeps only its id and the session id fits.
         .child(div().flex_none().text_color(t.accent).child(machine ? a.address.slice(machine.length + 1) : a.address))
-        .when(Boolean(sid), (el) => el.child(div().min_w(0).truncate().text_color(t.dim).child(` \u00b7 ${shortSid(sid)}`)))
+        // agents-ids: two lines per agent: what it is doing takes the session id's place (still in the tooltip).
+        .when(Boolean(doing), (el) => el.child(this.marquee(div().id(`third-${a.address}`).flex_1().min_w(0).ml(6).text_color(doing.stale ? t.blocked : doing.you ? t.accent : t.dim), `third-${a.address}`, doing.text, doing.tip || doing.text, this.hovered === a.address)))
+        .when(!doing && Boolean(sid), (el) => el.child(div().min_w(0).truncate().text_color(t.dim).child(` \u00b7 ${shortSid(sid)}`)))
         .when(Boolean(brief), (el) => el.child(div().id(`brief-${a.address}`).min_w(0).truncate().ml(5).px(4).rounded(4).text_color(t.muted)
           .hover((s) => s.bg(t.hover).text_color(t.foreground)).tooltip(`brief: ${labels["agent.brief"]}\nclick: open it`)
           .on_click((_e, cx) => { cx.stop_propagation(); openBrief(a, labels["agent.brief"], cx); }).child(brief)))
@@ -908,7 +949,7 @@ export default class Agents extends View {
       const body = h_flex()
         .id(`ag-${a.address}`)
         .px(8)
-        .h(44 + (doing ? 15 : 0) + (herdLine ? 15 : 0))
+        .h(38 + (herdLine ? 16 : 0))
         .flex_none()
         .rounded(8)
         .items_center()
@@ -921,6 +962,13 @@ export default class Agents extends View {
           if (on) this.hovered = a.address;
           else if (this.hovered === a.address) this.hovered = null;
           cx.notify();
+        })
+        // agents-ids: right-click opens the agent's menu (agentMenu in extras.mjs) at the pointer.
+        .on_mouse_down("right", () => {
+          const m = { address: a.address, pane: a.pane, tab: a.tab, sid, app: labels?.["agent.app"], pinned: isPinned, brief, briefPath: labels?.["agent.brief"],
+            lead: leadAgent ? detail.get(leadAddr) ?? leadAgent.space_name ?? leadAddr : null, leadPane: leadAgent?.pane, workers: kin, folded: this.folded.has(a.address) };
+          const height = 10 + agentMenu(m).reduce((h, it) => h + (it ? 28 : 9), 0);
+          openOverlay({ mod: "agents-ids", kind: "popup", width: 240, height, props: { agentMenu: m } });
         })
         // agents-ids: while picking for Send to several, a click picks; it never focuses or types.
         .on_click((_e, cx) => (this.selecting ? togglePick(a, cx) : run("pane.focus", { pane: a.pane })))
@@ -937,8 +985,7 @@ export default class Agents extends View {
             .child(div().min_w(0).max_w(full && more ? 120 : 200).truncate().text_color(idle ? t.muted : t.foreground).child(name))
             .when(full && Boolean(more), el => el.child(div().flex_1().min_w(0).truncate().text_color(t.dim).child(`\u00b7 ${more}`))))
           .child(ids)
-          .when(Boolean(doing), (el) => el.child(this.marquee(div().id(`third-${a.address}`).min_w(0).text_size(11).text_color(doing.stale ? t.blocked : doing.you ? t.accent : t.dim), `third-${a.address}`, doing.text, doing.tip || doing.text, this.hovered === a.address)))
-          .when(Boolean(herdLine), (el) => el.child(div().min_w(0).truncate().text_size(11).text_color(t.muted).child(herdLine))))
+          .when(Boolean(herdLine), (el) => el.child(div().min_w(0).truncate().text_size(10.5).text_color(t.muted).child(herdLine))))
         // An icon, not the name, so a remote agent's title isn't cut short; the name is in the tooltip.
         .when(Boolean(machine), el => el.child(div().id(`machine-${a.address}`).flex_none().tooltip(`on ${machine}`)
           .child(svg("mods/workspace-chrome/server.svg").size(12).text_color(t.dim))))
@@ -949,8 +996,8 @@ export default class Agents extends View {
       if (!tree) return body;
       // agents-ids: a nested herd member, with a tree line from its lead.
       return h_flex().id(`herd-${a.address}`).pl(14).flex_none().items_start()
-        .child(div().w(10).mr(4).flex_none().h(tree === "└" ? 22 : 44 + (doing ? 15 : 0)).border_l(1.5).border_color(t.input)
-          .child(div().mt(21).w(10).border_b(1.5).border_color(t.input)))
+        .child(div().w(10).mr(4).flex_none().h(tree === "└" ? 19 : 38).border_l(1.5).border_color(t.input)
+          .child(div().mt(18).w(10).border_b(1.5).border_color(t.input)))
         .child(body);
     };
 
@@ -1017,7 +1064,7 @@ export default class Agents extends View {
       .bg(t.chrome)
       .border_t(1)
       .border_color(t.border)
-      .text_size(13)
+      .text_size(12)
       .when(!collapsed, (el) =>
         el.child(
           h_flex()

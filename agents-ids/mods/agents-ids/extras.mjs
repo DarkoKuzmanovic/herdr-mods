@@ -74,6 +74,24 @@ export function resumeArgv(app, id) {
   return key && /^[\w.-]{4,128}$/.test(id ?? "") ? RESUME[key](id) : null;
 }
 
+/** The agent row's right-click menu: [label, action, icon] groups, null between them. Only what applies
+ *  shows. `m`: { sid, app, pinned, brief, lead (name), workers (count nested under it), folded }. */
+export function agentMenu(m) {
+  const resume = resumeArgv(m.app, m.sid);
+  return [
+    ["Go to agent", "go", "terminal"], ["Peek", "peek", "search"], null,
+    ...(m.brief || m.lead ? [
+      ...(m.brief ? [[`Open brief (${m.brief})`, "brief", "file-text"]] : []),
+      ...(m.lead ? [[`Go to lead (${m.lead})`, "lead", "git-branch"]] : []), null] : []),
+    ...(m.workers ? [[m.folded ? "Show workers" : "Fold workers", "fold", "layers"], null] : []),
+    ...(m.sid ? [["Copy session ID", "copy-sid", "files"]] : []), ["Copy address", "copy-address", "files"],
+    ...(resume ? [["Copy resume command", "copy-resume", "files"]] : []), null,
+    [m.pinned ? "Unpin" : "Pin to the top", "pin", m.pinned ? "pin-off" : "pin"], ["Rename tab\u2026", "rename", "square-pen"],
+    ["Send to several\u2026", "pick", "check"], ["Put tab away", "settle", "archive"], null,
+    ["Close\u2026", "close", "x"],
+  ];
+}
+
 const KEEP = 20;
 const DAYS = 14;
 
@@ -306,6 +324,18 @@ export function herdSummary(statuses) {
 /** A brief's short name for the row: its file name without a leading date or the extension. */
 export const briefName = (labels) => label(labels, "agent.brief", 300).replace(/\/+$/, "").split("/").pop()
   .replace(/^\d{4}-\d{2}-\d{2}[-_ ]?/, "").replace(/\.[^.]+$/, "").slice(0, 24);
+
+/** Where a brief opens in the agent's tab: focus a fresh pane already showing it (its title starts with
+ *  the file's path), else below the tab's last fresh pane so briefs stack in one column, else right of
+ *  the agent. Repeat clicks then don't keep halving the agent's pane. */
+export function briefTarget(panes, tab, pane, path) {
+  const fresh = (panes ?? []).filter((p) => p.tab === tab && p.terminal && p.program?.name === "fresh");
+  const name = String(path).split("/").pop();
+  const open = fresh.find((p) => (p.title ?? "").split(" \u2014 ")[0].split("/").pop() === name);
+  if (open) return { focus: open.pane };
+  const last = fresh.pop();
+  return last ? { pane: last.pane, direction: "down" } : { pane, direction: "right" };
+}
 
 /** What sits in an agent's input box, from `hc read` text: a string ("" when empty), or null when this
  *  agent's box can't be read, so a send must not go there (it would replace or join a draft). */

@@ -32,7 +32,8 @@ function place(s, ps) {
   const tabs = new Set((s.tabs ?? []).map((c) => c.id));
   return ps.find((p) => tabs.has(p.tab) && p.cwd)?.cwd || s.folder;
 }
-const rowHeight = ({ tree }, two) => (two ? 40 : tree ? 28 : 30);
+// spaces-plus: one line per space (name, then git/tabs detail), so more spaces fit.
+const ROW_H = 26;
 const where = (s, ps) => JSON.stringify([s.machine ?? null, place(s, ps)]);
 const base = (path) => path.replace(/\/+$/, "").split("/").pop();
 // Changes made outside Herdr (an editor's save, a commit in another app): looked
@@ -541,7 +542,7 @@ export default class Spaces extends View {
     if (tabs > 1) parts.push(div().flex_none().child(`${tabs} tabs`));
     parts.push(...this.chips(w, g, t, ps));
     if (!parts.length) return null;
-    return h_flex().min_w(0).gap(5).items_center().text_size(11).text_color(t.dim)
+    return h_flex().min_w(0).gap(5).items_center().text_size(10.5).text_color(t.dim).overflow_hidden()
       .children(parts.flatMap((p, n) => (n ? [div().flex_none().child("\u00b7"), p] : [p])));
   }
 
@@ -583,7 +584,7 @@ export default class Spaces extends View {
       .relative()
       .id(`space-${w.id}`)
       .px(8)
-      .h(rowHeight({ tree }, Boolean(second)))
+      .h(ROW_H)
       .flex_none()
       .justify_center()
       .rounded(8)
@@ -623,12 +624,10 @@ export default class Spaces extends View {
           .items_center()
           .when(Boolean(tree), el => el.pl(22).child(svg("mods/workspace-chrome/branch.svg").size(13).text_color(t.dim)))
           // spaces-plus: outlined avatar in the space's color, so it sits in the theme instead of a bright tile.
-          .when(!tree, el => el.child(h_flex().size(18).flex_none().rounded(5).border_1().border_color(fill).items_center().justify_center().text_size(10.5).font_bold().text_color(fill).child([...name][0]?.toUpperCase() ?? "?")))
-          .child(v_flex().flex_1().min_w(0).gap(1)
-            .child(h_flex().min_w(0).gap(5).items_center()
-              .child(div().flex_shrink(0).max_w(150).truncate().text_color(t.foreground).child(name))
-              .child(tree && g ? this.gitTail(g, tree, name, t, this.chips(w, g, t, ps)) : div().flex_1()))
-            .when(Boolean(second), (el) => el.child(second)))
+          .when(!tree, el => el.child(h_flex().size(16).flex_none().rounded(5).border_1().border_color(fill).items_center().justify_center().text_size(10.5).font_bold().text_color(fill).child([...name][0]?.toUpperCase() ?? "?")))
+          .child(h_flex().flex_1().min_w(0).gap(6).items_center()
+            .child(div().flex_shrink(0).max_w(120).truncate().text_color(t.foreground).child(name))
+            .child(tree && g ? this.gitTail(g, tree, name, t, this.chips(w, g, t, ps)) : second ? second.flex_1() : div().flex_1()))
           .when(Boolean(this.status(t, w.status)), (el) => el.child(this.status(t, w.status))),
       );
   }
@@ -662,7 +661,7 @@ export default class Spaces extends View {
       changed = true;
     }
     if (changed) setShared("space.colors", kept);
-    return v_flex().size_full().min_h(0).bg(t.chrome).text_size(13)
+    return v_flex().size_full().min_h(0).bg(t.chrome).text_size(12)
       .child(h_flex().h(31).pl(16).pr(10).items_center().justify_between().text_size(11.5).text_color(t.dim)
         .when(!collapsed, el => el.child("Spaces"))
         .child(div().id("space-new").size(26).flex_none().flex().items_center().justify_center().rounded(6).hover(s => s.bg(t.hover).text_color(t.foreground))

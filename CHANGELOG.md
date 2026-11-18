@@ -8,10 +8,19 @@ a version (see [AGENTS.md](AGENTS.md#releases)).
 
 ## [Unreleased]
 
+### Added
+
+- **agents-ids:** right-click an agent for its menu: go to it, peek, its brief and herd lead, fold its workers, copy its session ID, address or resume command, pin, rename or put away its tab, start Send to several with it picked, and close (after the usual check).
+- **prompts:** a new mod: a panel (Ctrl+Shift+I in the README's keys) of prompts you keep for later, global or for the project the focused terminal is in. Save, edit (or move between project and global), delete with a second click, and **Insert** one into the terminal's agent, pasted without Enter.
+
 ### Changed
 
 - **agents-ids, sysstat:** an agent or stats bar on another machine shows that machine's Spaces icon instead of its name, so an agent's title isn't cut short; hover the agent's icon (or open the stats card) for the name.
 - **spaces-plus:** a machine row's space count reads `(2)` rather than a bare `2` after the name.
+- **agents-ids:** clicking a herd agent's brief again focuses the pane already showing it instead of opening another, and a second brief in that tab opens below the first, so the agent keeps half the tab.
+- **spaces-plus:** each space is one line (name, then its git and tab details) in a 1 px smaller font, so more spaces fit.
+- **agents-ids:** each agent is two lines in a 1 px smaller font: name and age, then its terminal and what it is doing (the session id shows there only when there's nothing else; it's always in the tooltip).
+- **md-open:** the second and later markdown files open below the first one's `fresh` pane, stacked in one column, instead of each splitting the agent's pane in half again.
 
 ### Fixed
 
