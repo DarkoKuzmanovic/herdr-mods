@@ -1,7 +1,7 @@
 import { View, div } from 'gpui-kit';
 import { v_flex, h_flex } from 'gpui-base';
-import { closeOverlay, exec, focused, props, run, theme } from 'herdr';
-import { isMarkdown, mdPaths, splitAddress } from './logic.mjs';
+import { closeOverlay, exec, focused, panes, props, run, theme } from 'herdr';
+import { isMarkdown, mdPaths, splitAddress, splitTarget } from './logic.mjs';
 
 // Prints the machine's home, then the paths that are files there, made absolute: relative ones against
 // the terminal's folder, ~/ against home. Paths travel as arguments, never as script.
@@ -17,6 +17,7 @@ export default class MdOpen extends View {
     cx.timer.after(300, () => this.handle.focus());
     const f = focused();
     this.pane = f?.pane ?? null;
+    this.tab = f?.tab ?? null;
     const terminal = f?.shown ?? f?.terminal;
     if (!terminal) { this.note = 'Focus a terminal first.'; return; }
     const { machine, address } = splitAddress(terminal);
@@ -46,7 +47,7 @@ export default class MdOpen extends View {
     closeOverlay(props().overlay);
     const argv = ['fresh', path];
     // A layout terminal block has no pane to split; a tab is the next best place.
-    if (this.pane) run('pane.split', { direction: 'right', pane: this.pane, argv });
+    if (this.pane) run('pane.split', { ...splitTarget(panes(), this.tab, this.pane), argv });
     else run('tab.new', { argv });
   }
 

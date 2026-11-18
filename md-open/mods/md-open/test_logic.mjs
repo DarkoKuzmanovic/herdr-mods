@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { isMarkdown, mdPaths, splitAddress } from './logic.mjs';
+import { splitTarget, isMarkdown, mdPaths, splitAddress } from './logic.mjs';
 const screen = `Recommendation written: /home/alex/acme/.hermes/plans/2026-11-09-plan.md
 see README.md:12 and (docs/setup.md), also ~/notes/todo.markdown.
 diff a//home/alex/acme/CHANGELOG.md, not a.mdx or https://x.md/page or foo.md5
@@ -20,4 +20,8 @@ assert.equal(isMarkdown('/a/b.html'), false);
 assert.equal(isMarkdown('/a/b.pdf'), false);
 assert.deepEqual(splitAddress('t7'), { machine: null, address: 't7' });
 assert.deepEqual(splitAddress('box/t7'), { machine: 'box', address: 't7' });
+const fr = (pane, tab) => ({ pane, tab, terminal: 't' + pane, program: { name: 'fresh' } });
+assert.deepEqual(splitTarget([], 'a', 'p1'), { pane: 'p1', direction: 'right' });
+assert.deepEqual(splitTarget([fr('p9', 'b'), { pane: 'p1', tab: 'a', terminal: 't1', program: { name: 'hermes' } }], 'a', 'p1'), { pane: 'p1', direction: 'right' });
+assert.deepEqual(splitTarget([fr('p2', 'a'), fr('p3', 'a')], 'a', 'p1'), { pane: 'p3', direction: 'down' });
 console.log('md-open logic ok');

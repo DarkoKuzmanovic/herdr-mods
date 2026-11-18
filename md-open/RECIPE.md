@@ -13,7 +13,7 @@ first, each once. Keep only paths that are files on that machine, made absolute:
 the focused terminal's folder, `~/` against that machine's home. Do that with one constant `sh -c`
 script that takes the paths as arguments; never put a path into script text.
 
-Open markdown with `pane.split {direction: "right", pane, argv: ["fresh", path]}`; a layout terminal block has
+Open markdown with `pane.split {direction: "right", pane, argv: ["fresh", path]}`, or `direction: "down"` below the tab's last pane whose `program.name` is `fresh` (from `panes()`), so later files stack in that column instead of halving the agent's pane again; a layout terminal block has
 no pane, so open a new tab with that argv instead. Hand HTML and PDF to `cx.open_url("file://" + path)`
 (each path segment URI-encoded), which opens them in the system browser or viewer. That runs on this
 computer, so for another machine's terminal list them but say they can't be opened from here. Programs on the alternate screen (Hermes TUI, editors)

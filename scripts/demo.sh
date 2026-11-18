@@ -30,6 +30,7 @@ CROP_MENU="${CROP_MENU:-0 0 292 372}"
 CROP_SYSSTAT="${CROP_SYSSTAT:-2960 1370 3410 1406}"
 CROP_USAGE="${CROP_USAGE:-2850 1370 2960 1406}"
 CROP_HANDOVERS="${CROP_HANDOVERS:-1440 350 2000 1060}"
+CROP_PROMPTS="${CROP_PROMPTS:-1420 350 2020 1060}"
 
 demo_env() {
   export HERDR_APP_HOME="$DEMO/home" XDG_RUNTIME_DIR="$DEMO/run" XDG_STATE_HOME="$DEMO/state" XDG_DATA_HOME="$DEMO/share"
@@ -142,6 +143,13 @@ ended = [("claude", "3f9c2a1e-7d4b-4c8e-9a01-5b6d7e8f9a0b", "acme-api", 12), ("p
 store["sessions"] = json.dumps({sid: {"sid": sid, "app": app, "address": f"t{9 + i}", "cwd": f"{work}/{folder}", "space": "", "seen": now - mins * 60000}
                                 for i, (app, sid, folder, mins) in enumerate(ended)})
 json.dump(store, open(store_path, "w"))
+# Saved prompts for the prompts panel: two global, and one per repo so the focused one shows its own.
+os.makedirs(f"{home}/data", exist_ok=True)
+prompts = [{"id": "g1", "text": "Review the last commit for bugs and risky changes. Report only what you'd block a merge on.", "project": "", "at": now - 1},
+           {"id": "g2", "text": "Write a handover note for this session: what's done, what's left, and what only I can do.", "project": "", "at": now - 2}]
+prompts += [{"id": f"r{i}", "text": f"Run the {repo} test suite, fix what fails, and show me the diff before committing.", "project": f"{work}/{repo}", "at": now}
+            for i, repo in enumerate(["acme-api", "web-dashboard", "docs-site"])]
+json.dump(prompts, open(f"{home}/data/prompts.json", "w"))
 PY
   if ! herdr-app status >/dev/null 2>&1; then
     setsid herdr-app >"$DEMO/app.log" 2>&1 </dev/null &
@@ -151,7 +159,7 @@ PY
   # Demo stays isolated: copy this checkout directly, never run the installer.
   mkdir -p "$HERDR_APP_HOME/mods" "$HERDR_APP_HOME/layouts"
   local m
-  for m in agents-ids spaces-plus sysstat sessions usage md-open copy-on-select handovers; do
+  for m in agents-ids spaces-plus sysstat sessions usage md-open copy-on-select handovers prompts; do
     mkdir -p "$HERDR_APP_HOME/mods/$m"
     rsync -a --delete "$REPO/$m/mods/$m/" "$HERDR_APP_HOME/mods/$m/"
   done
@@ -261,6 +269,11 @@ PY
   do_ overlay.close
   python3 -c 'import sys; from PIL import Image; Image.open(sys.argv[1]).crop(tuple(map(int, sys.argv[3].split()))).save(sys.argv[2])' "$DEMO/handovers.png" "$REPO/handovers/preview.png" "$CROP_HANDOVERS"
   echo "  handovers/preview.png <- $CROP_HANDOVERS"
+  do_ mod.open '{"name":"prompts"}'; sleep 3
+  herdr-app shot "$DEMO/prompts.png" >/dev/null
+  do_ overlay.close
+  python3 -c 'import sys; from PIL import Image; Image.open(sys.argv[1]).crop(tuple(map(int, sys.argv[3].split()))).save(sys.argv[2])' "$DEMO/prompts.png" "$REPO/prompts/preview.png" "$CROP_PROMPTS"
+  echo "  prompts/preview.png <- $CROP_PROMPTS"
 }
 
 stop() {

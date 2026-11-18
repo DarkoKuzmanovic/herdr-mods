@@ -8,6 +8,13 @@ export function mdPaths(text) {
 // Markdown opens in the editor; HTML and PDF go to whatever the system opens files with.
 export const isMarkdown = path => /\.(?:md|markdown)$/i.test(path);
 
+// Where the next file opens: below the tab's last fresh pane, so files stack in one column beside the
+// agent; with none yet, right of the focused pane.
+export function splitTarget(panes, tab, pane) {
+  const fresh = (panes ?? []).filter(p => p.tab === tab && p.terminal && p.program?.name === 'fresh').pop();
+  return fresh ? { pane: fresh.pane, direction: 'down' } : { pane, direction: 'right' };
+}
+
 // "machine/t7" (another machine's terminal) or "t7" (this computer's).
 export function splitAddress(terminal) {
   const at = String(terminal ?? '').lastIndexOf('/');
