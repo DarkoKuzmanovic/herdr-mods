@@ -8,6 +8,8 @@ a version (see [AGENTS.md](AGENTS.md#releases)).
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-11-18
+
 ### Added
 
 - **agents-ids:** right-click an agent for its menu: go to it, peek, its brief and herd lead, fold its workers, copy its session ID, address or resume command, pin, rename or put away its tab, start Send to several with it picked, and close (after the usual check).
@@ -292,7 +294,8 @@ First public release.
   OpenCode (TUI plugin), all through `integrations/bin/agent-session-label`.
 - `install.sh` (`--mods-only`, `--watch`) and the `main-plus` layout.
 
-[Unreleased]: https://github.com/DarkoKuzmanovic/herdr-mods/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/DarkoKuzmanovic/herdr-mods/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/DarkoKuzmanovic/herdr-mods/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/DarkoKuzmanovic/herdr-mods/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/DarkoKuzmanovic/herdr-mods/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/DarkoKuzmanovic/herdr-mods/compare/v0.10.0...v0.11.0
