@@ -27,13 +27,16 @@ class NamesTest(unittest.TestCase):
             db.commit(); db.close()
             lines(root / '.pi/agent/sessions/p/2024_pi-abc1.jsonl', {'type': 'session', 'id': 'pi-abc1'},
                   {'type': 'session_info', 'name': 'old'}, {'type': 'session_info', 'name': 'Pi renamed'})
+            lines(root / '.huginn/agent/sessions/p/2024_hg-abc1.jsonl', {'type': 'session', 'id': 'hg-abc1'},
+                  {'type': 'session_info', 'name': 'acme-tab'})
+            lines(root / '.huginn/agent/sessions/p/2024_hg-abc2.jsonl', {'type': 'session_info', 'name': 'not pig'})
             lines(root / '.codex/session_index.jsonl', {'id': 'cx-abc1', 'thread_name': 'Codex one'}, {'id': 'other', 'thread_name': 'no'})
             lines(root / '.claude/projects/p/cl-abc1.jsonl', {'type': 'ai-title', 'aiTitle': 'Auto'}, {'type': 'custom-title', 'customTitle': 'Mine'})
             lines(root / '.claude/projects/p/cl-abc2.jsonl', {'type': 'ai-title', 'aiTitle': 'Auto only'})
             args = ['hermes:local-abc1', 'opencode:ses_abc1', 'pi:pi-abc1', 'codex:cx-abc1', 'claude:cl-abc1', 'claude:cl-abc2',
-                    'claude:missing1', 'claude:../../x', 'pig:pi-abc1']
+                    'claude:missing1', 'claude:../../x', 'pig:pi-abc1', 'huginn:hg-abc1', 'pig:hg-abc2']  # a Huginn session lives in its own home
             out = json.loads(subprocess.check_output(['python3', str(SCRIPT), '--root', d, *args], text=True))
             self.assertEqual(out, {'local-abc1': 'Fix the acme build', 'ses_abc1': 'OpenCode one', 'pi-abc1': 'Pi renamed',
-                                   'cx-abc1': 'Codex one', 'cl-abc1': 'Mine', 'cl-abc2': 'Auto only'})
+                                   'cx-abc1': 'Codex one', 'cl-abc1': 'Mine', 'cl-abc2': 'Auto only', 'hg-abc1': 'acme-tab'})
 
 if __name__ == '__main__': unittest.main()

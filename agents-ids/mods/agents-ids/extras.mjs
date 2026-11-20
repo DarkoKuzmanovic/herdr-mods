@@ -55,6 +55,7 @@ const RESUME = {
   codex: (id) => ["codex", "resume", id],
   pi: (id) => ["pi", "--session", id],
   pig: (id) => ["pig", "--session", id],
+  huginn: (id) => ["huginn", "--session", id], // a PiG harness with its own home (PIG_HOME)
   opencode: (id) => ["opencode", "--session", id],
   hermes: (id) => ["hermes", "--resume", id],
 };

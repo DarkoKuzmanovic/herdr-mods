@@ -37,7 +37,7 @@ def name(root, app, sid):
         return sql(root / '.hermes/state.db', 'SELECT title FROM sessions WHERE id=?', sid)
     if app == 'opencode':
         return sql(root / '.local/share/opencode/opencode.db', 'SELECT title FROM session WHERE id=?', sid)
-    if app in ('pi', 'pig'):
+    if app in ('pi', 'pig', 'huginn'):
         for p in (root / f'.{app}/agent/sessions').glob(f'*/*_{sid}.jsonl'):
             return last(p, lambda e: e.get('type') == 'session_info' and e.get('name'))
     if app == 'codex':

@@ -47,7 +47,7 @@ on herdr.dev (a layout package would need its own copies of the mods); it lives 
 - **Mods stand alone.** No imports from another mod's folder (someone may install only one). The
   shipped `workspace-chrome` icons (`mods/workspace-chrome/*.svg`) are fine; they ship with herdr-app.
 - **The label contract is public.** Terminal labels `agent.session` (the session ID) and `agent.app`
-  (`claude`, `codex`, `pi`, `pig`, `opencode`, `hermes`) are what other agents and tools write. Don't
+  (`claude`, `codex`, `pi`, `pig`, `huginn`, `opencode`, `hermes`) are what other agents and tools write. Don't
   rename them; add new labels instead.
 - **Never type untrusted text into a shell.** Labels can be written by any program. Resume runs only
   IDs matching `^[\w.-]{4,128}$` for known programs (`resumeArgv` in `agents-ids/extras.mjs`), always as

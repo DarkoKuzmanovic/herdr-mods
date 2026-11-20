@@ -95,7 +95,7 @@ shell or runs something else) or the terminal closed. The mod remembers each lab
 (where, when) in `localStorage`, up to 20 for 14 days, so closed terminals and restarts don't lose
 them; one that runs again anywhere leaves the list. **Resume** opens a new tab with the command as its
 argv, on the session's own machine: in its space if that still exists (else another space there), in its
-folder if that still exists. It never types into the old terminal, which may hold a half-typed line. Commands: `claude --resume`, `codex resume`, `pi --session`, `pig --session`, `opencode --session`,
+folder if that still exists. It never types into the old terminal, which may hold a half-typed line. Commands: `claude --resume`, `codex resume`, `pi --session`, `pig --session`, `huginn --session`, `opencode --session`,
 `hermes --resume`. Ctrl-clicking the row copies the session ID; the X beside Resume hides the session
 until it runs again.
 

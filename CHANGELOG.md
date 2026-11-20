@@ -8,6 +8,11 @@ a version (see [AGENTS.md](AGENTS.md#releases)).
 
 ## [Unreleased]
 
+### Added
+
+- **agents-ids:** Resume and session names for Huginn workers (`agent.app=huginn`, a PiG harness with its own home):
+  Resume runs `huginn --session <id>` in the session's folder.
+
 ## [0.14.0] - 2026-11-18
 
 ### Added

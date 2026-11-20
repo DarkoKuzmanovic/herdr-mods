@@ -38,6 +38,7 @@ assert.deepEqual(resumeArgv("claude-code", "abcd1234"), ["claude", "--resume", "
 assert.deepEqual(resumeArgv("/usr/bin/codex", "abcd1234"), ["codex", "resume", "abcd1234"]);
 assert.deepEqual(resumeArgv("opencode", "ses_e5d03aa98ffe"), ["opencode", "--session", "ses_e5d03aa98ffe"]);
 assert.deepEqual(resumeArgv("hermes", "local-e257df53"), ["hermes", "--resume", "local-e257df53"]);
+assert.deepEqual(resumeArgv("huginn", "01a1f9f0-2f0a-70df"), ["huginn", "--session", "01a1f9f0-2f0a-70df"]);
 assert.equal(resumeArgv("vim", "abcd1234"), null);
 assert.equal(resumeArgv("claude", "x; rm -rf ~"), null); // never typed into a shell
 assert.equal(resumeArgv("claude", "$(id)"), null);
