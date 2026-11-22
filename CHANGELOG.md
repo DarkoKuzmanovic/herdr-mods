@@ -8,6 +8,8 @@ a version (see [AGENTS.md](AGENTS.md#releases)).
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-11-22
+
 ### Added
 
 - **agents-ids:** Resume and session names for Huginn workers (`agent.app=huginn`, a PiG harness with its own home):
@@ -18,7 +20,8 @@ a version (see [AGENTS.md](AGENTS.md#releases)).
 - **sessions:** search and resume Claude Code, Codex and OpenCode sessions too (`claude --resume`,
   `codex resume`, `opencode --session`); scripted runs (`claude -p`, SDK, `codex exec`) are left out.
 - **usage:** pinned providers (`show` in the layout props): one icon and percent per provider in the
-  status bar, each for the window you name, like the Kuota taskbar widget.
+  status bar, each for the window you name, like the Kuota taskbar widget. A toggle in the hover card
+  (All / Busiest) shows all of them or only the busiest, and the block resizes to fit.
 
 ### Changed
 
@@ -320,7 +323,8 @@ First public release.
   OpenCode (TUI plugin), all through `integrations/bin/agent-session-label`.
 - `install.sh` (`--mods-only`, `--watch`) and the `main-plus` layout.
 
-[Unreleased]: https://github.com/DarkoKuzmanovic/herdr-mods/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/DarkoKuzmanovic/herdr-mods/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/DarkoKuzmanovic/herdr-mods/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/DarkoKuzmanovic/herdr-mods/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/DarkoKuzmanovic/herdr-mods/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/DarkoKuzmanovic/herdr-mods/compare/v0.11.0...v0.12.0
