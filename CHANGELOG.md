@@ -15,6 +15,8 @@ a version (see [AGENTS.md](AGENTS.md#releases)).
 - **prompts:** one list for several computers: name a machine in `data/prompts.on` and the panel reads and
   saves that machine's prompts, with projects named the same from both, so a prompt saved on the laptop
   shows on the desktop and back.
+- **sessions:** search and resume Claude Code, Codex and OpenCode sessions too (`claude --resume`,
+  `codex resume`, `opencode --session`); scripted runs (`claude -p`, SDK, `codex exec`) are left out.
 - **usage:** pinned providers (`show` in the layout props): one icon and percent per provider in the
   status bar, each for the window you name, like the Kuota taskbar widget.
 

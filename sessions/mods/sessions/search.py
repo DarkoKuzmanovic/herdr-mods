@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read Hermes and Pi session history; no files are changed."""
+"""Read agent session history; no files are changed."""
 import argparse
 import datetime
 import json
@@ -9,7 +9,7 @@ import re
 import sqlite3
 import time
 
-ID = re.compile(r'^[\w.-]{4,128}$', re.ASCII)
+ID = re.compile(r'^(?!-)[\w.-]{4,128}$', re.ASCII)
 
 def text(value):
     if isinstance(value, str):
@@ -119,6 +119,130 @@ def pi(root, query, deadline):
             continue
     return rows
 
+def transcripts(root, query, deadline, app):
+    pattern = '.claude/projects/*/*.jsonl' if app == 'claude' else '.codex/sessions/*/*/*/rollout-*.jsonl'
+    files = []
+    for path in root.glob(pattern):
+        if time.monotonic() > deadline:
+            break
+        try:
+            files.append((path.stat().st_mtime, path))
+        except OSError:
+            continue
+    rows = []
+    # shortcut: only the newest 2000 files are searched, upgrade to an index for older history.
+    for modified, path in sorted(files, reverse=True)[:2000]:
+        if time.monotonic() > deadline or len(rows) >= 50:
+            break
+        sid, folder, first, match, name = (path.stem if app == 'claude' else ''), '', '', '', ''
+        # Scripted runs (`claude -p` / SDK, `codex exec`) outnumber real sessions ten to one and aren't resumed by hand.
+        scripted = False
+        try:
+            with path.open(encoding='utf-8') as f:
+                for line in f:
+                    if time.monotonic() > deadline:
+                        break
+                    try:
+                        entry = json.loads(line)
+                    except ValueError:
+                        continue
+                    if not isinstance(entry, dict):
+                        continue
+                    if app == 'claude':
+                        if str(entry.get('entrypoint') or '').startswith('sdk'):
+                            scripted = True
+                            break
+                        if entry.get('isSidechain'):
+                            continue
+                        if entry.get('type') == 'custom-title':
+                            name = entry.get('customTitle') or name
+                        folder = entry.get('cwd') or folder
+                        msg = entry.get('message') if entry.get('type') in ('user', 'assistant') else None
+                    else:
+                        msg = entry.get('payload')
+                        if entry.get('type') == 'session_meta' and isinstance(msg, dict):
+                            sid, folder = msg.get('id') or msg.get('session_id', ''), msg.get('cwd', '')
+                            if msg.get('originator') == 'codex_exec':
+                                scripted = True
+                                break
+                        if entry.get('type') != 'response_item' or not isinstance(msg, dict) or msg.get('type') != 'message':
+                            msg = None
+                    if not isinstance(msg, dict):
+                        continue
+                    content = msg.get('content')
+                    if app == 'codex' and isinstance(content, list):
+                        content = ' '.join(p.get('text', '') for p in content if isinstance(p, dict) and p.get('type') in ('input_text', 'output_text') and isinstance(p.get('text'), str))
+                    else:
+                        content = text(content)
+                    if app == 'codex' and msg.get('role') == 'user' and content.startswith(('# AGENTS.md instructions', '<environment_context>')):
+                        continue
+                    if msg.get('role') == 'user' and content and not first:
+                        first = content
+                    if query and query.lower() in content.lower() and not match:
+                        match = content
+                    if first and (match or not query):
+                        break
+        except (OSError, UnicodeError):
+            continue
+        if scripted or not isinstance(sid, str) or not ID.fullmatch(sid) or not first:
+            continue
+        folder, name = str(folder or ''), str(name or '')
+        if query and not match and query.lower() not in (first + ' ' + name + ' ' + folder).lower():
+            continue
+        context = match or (name if query and query.lower() in name.lower() else folder if query and query.lower() in folder.lower() else first)
+        rows.append(dict(app=app, id=sid, title=name or first, cwd=folder, folder_exists=bool(folder and os.path.isdir(folder)), timestamp=modified, snippet=snippet(context, query)))
+    return rows
+
+def opencode(root, query, deadline):
+    path = root / '.local/share/opencode/opencode.db'
+    if not path.is_file():
+        return []
+    db = sqlite3.connect(path.as_uri() + '?mode=ro', uri=True, timeout=0.5)
+    db.set_progress_handler(lambda: int(time.monotonic() > deadline), 10000)
+    rows = []
+    try:
+        tables = {r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        for version, needed in ((2, {'session_v2', 'session_message'}), (1, {'session', 'message', 'part'})):
+            if not needed <= tables:
+                continue
+            table = 'session_v2' if version == 2 else 'session'
+            # shortcut: only the newest 2000 sessions are searched, upgrade to an index for older history.
+            for sid, name, folder, updated in db.execute(f'SELECT id, title, directory, time_updated FROM {table} ORDER BY time_updated DESC LIMIT 2000'):
+                if time.monotonic() > deadline or len(rows) >= 50:
+                    break
+                if not isinstance(sid, str) or not ID.fullmatch(sid):
+                    continue
+                if version == 2:
+                    messages = db.execute('SELECT type, data FROM session_message WHERE session_id=? AND type IN (\'user\', \'assistant\') ORDER BY seq', (sid,))
+                else:
+                    messages = db.execute('SELECT m.data, p.data FROM message m JOIN part p ON p.message_id=m.id WHERE m.session_id=? ORDER BY m.time_created, p.time_created', (sid,))
+                first, match = '', ''
+                for kind, raw in messages:
+                    if time.monotonic() > deadline:
+                        break
+                    try:
+                        data = json.loads(raw)
+                        role = kind if version == 2 else json.loads(kind).get('role')
+                        content = (data.get('text') or text(data.get('content'))) if version == 2 else (data.get('text', '') if data.get('type') == 'text' else '')
+                        if not isinstance(content, str):
+                            continue
+                    except (ValueError, AttributeError, TypeError):
+                        continue
+                    if role == 'user' and content and not first:
+                        first = content
+                    if query and query.lower() in content.lower() and not match:
+                        match = content
+                    if first and (match or not query):
+                        break
+                name, folder = str(name or ''), str(folder or '')
+                if not first or (query and not match and query.lower() not in (name + ' ' + folder + ' ' + first).lower()):
+                    continue
+                context = match or (name if query and query.lower() in name.lower() else folder if query and query.lower() in folder.lower() else first)
+                rows.append(dict(app='opencode', id=sid, title=name or first, cwd=folder, folder_exists=bool(folder and os.path.isdir(folder)), timestamp=(updated or 0) / 1000, snippet=snippet(context, query)))
+        return rows
+    finally:
+        db.close()
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument('--root', default=os.environ.get('HERDR_SESSIONS_ROOT', os.path.expanduser('~')))
@@ -126,9 +250,12 @@ def main():
     args = p.parse_args()
     root, deadline = Path(args.root), time.monotonic() + 3
     rows = []
-    for source in (hermes, pi):
+    sources = (hermes, pi, lambda r, q, d: transcripts(r, q, d, 'claude'),
+               lambda r, q, d: transcripts(r, q, d, 'codex'), opencode)
+    for index, source in enumerate(sources):
         try:
-            rows.extend(source(root, args.query.strip(), deadline))
+            source_deadline = time.monotonic() + max(0, deadline - time.monotonic()) / (len(sources) - index)
+            rows.extend(source(root, args.query.strip(), source_deadline))
         except (OSError, sqlite3.Error):
             continue
     print(json.dumps(sorted(rows, key=lambda x: x['timestamp'], reverse=True)[:50]))

@@ -93,7 +93,7 @@ export default class Sessions extends View {
       }).children(this.rows.slice(start, start + 8).map((r, offset) => {
         const i = start + offset;
         return v_flex().id(`session-${i}`).px(10).py(7).rounded(7).gap(3).cursor_pointer().when(i === this.at, el => el.bg(t.hover)).hover(s => s.bg(t.hover)).on_click((_e, cx) => this.go(r, cx))
-          .child(h_flex().gap(8).child(div().text_color(t.accent).child(r.app === 'hermes' ? 'Hermes' : r.app === 'pig' ? 'PiG' : 'Pi')).child(div().flex_1().text_color(t.foreground).child(String(r.title || 'Untitled').slice(0, 90))).child(div().text_color(t.dim).child(age(r.timestamp))))
+          .child(h_flex().gap(8).child(div().text_color(t.accent).child(({ hermes: 'Hermes', pi: 'Pi', pig: 'PiG', claude: 'Claude', codex: 'Codex', opencode: 'OpenCode' })[r.app])).child(div().flex_1().text_color(t.foreground).child(String(r.title || 'Untitled').slice(0, 90))).child(div().text_color(t.dim).child(age(r.timestamp))))
           .child(div().text_color(t.muted).child(`${String(r.cwd || 'Unknown folder').split('/').filter(Boolean).pop() || 'Unknown folder'}${r.machine ? ` · ${r.machine}` : ''}  —  ${String(r.snippet || '').slice(0, 160)}`));
       })));
   }

@@ -1,7 +1,8 @@
 export function resumeArgv(app, id) {
-  if (!/^[\w.-]{4,128}$/.test(id ?? '')) return null;
-  if (app === 'hermes') return ['hermes', '--resume', id];
-  if (app === 'pi' || app === 'pig') return [app, '--session', id];
+  if (!/^(?!-)[\w.-]{4,128}$/.test(id ?? '')) return null;
+  if (app === 'hermes' || app === 'claude') return [app, '--resume', id];
+  if (app === 'codex') return [app, 'resume', id];
+  if (app === 'pi' || app === 'pig' || app === 'opencode') return [app, '--session', id];
   return null;
 }
 
