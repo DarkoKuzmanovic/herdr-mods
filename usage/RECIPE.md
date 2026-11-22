@@ -22,6 +22,18 @@ seconds, for example:
 { "command": ["node", "/path/to/kuota/collector/cli.js"], "on": "workstation", "every": 300 }
 ```
 
+**Pinned providers** (optional `show`): instead of the busiest window, one item per provider in this
+order, each an icon (else its name) and the percent of the window named, or its busiest window without
+`window`; `—` while it reports none. Percents stay muted below 60%, then yellow and red. The hover card
+is unchanged. Icons are paths under herdr-app's folder; `icons/<dir>/` loads (other folders didn't), e.g.
+
+```json
+"show": [{ "id": "claude", "window": "weekly-all", "icon": "icons/kuota/claude.png" },
+         { "id": "codex", "window": "primary", "icon": "icons/kuota/codex.png" }]
+```
+
+Give the block room: about 60px per provider.
+
 Use the absolute path to your own Kuota collector. Without flags it leaves out the browser-session
 providers (mistral, muse, opendesign); add `"--enabled-providers=claude,codex,mistral"` (your own list)
 to the argv to match what your Kuota widget shows. Without `command`, the block is blank. `on`

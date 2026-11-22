@@ -15,9 +15,13 @@ a version (see [AGENTS.md](AGENTS.md#releases)).
 - **prompts:** one list for several computers: name a machine in `data/prompts.on` and the panel reads and
   saves that machine's prompts, with projects named the same from both, so a prompt saved on the laptop
   shows on the desktop and back.
+- **usage:** pinned providers (`show` in the layout props): one icon and percent per provider in the
+  status bar, each for the window you name, like the Kuota taskbar widget.
 
 ### Changed
 
+- **install.sh, demo, README:** every mod in the checkout is installed and checked, found by its
+  `<name>/mods/<name>/` folder, so a new mod needs no list edits.
 - **prompts:** redesigned panel: a search box (text and project name), scope tabs with counts
   (project, Global, All), the list under project headings (this project, Global, then the others), rows
   of two lines with Insert, edit and delete icons, the editor folded behind + / Ctrl+N, and ↑ ↓ Enter

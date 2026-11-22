@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { parse, busiest, resetIn, card, level, warnings } from "./logic.mjs";
+import { parse, busiest, pinned, resetIn, card, level, warnings } from "./logic.mjs";
 
 const sample = JSON.stringify({ schemaVersion: 2, providers: [
   { id: "claude", state: "ok", windows: [{ id: "weekly-all", label: "Weekly (all)", usedPercent: 7, resetAt: "2030-01-03T04:00:00Z" }] },
@@ -35,7 +35,7 @@ assert.throws(() => parse('{"providers":{}}'));
 assert.equal(busiest(parse('{"providers":[{"id":"x","state":"ok","windows":[{"usedPercent":null}]}]}')), null);
 // Exercise the actual view's polling with a controllable exec, without a running window.
 const source = (await readFile(new URL("./main.js", import.meta.url), "utf8"))
-  .replace('import { View, div, svg } from "gpui-kit";', 'const { View, div, svg } = globalThis.usageMock;')
+  .replace('import { View, div, image, svg } from "gpui-kit";', 'const { View, div, image, svg } = globalThis.usageMock;')
   .replace('import { h_flex, v_flex, HoverCard } from "gpui-base";', 'const { h_flex, v_flex, HoverCard } = globalThis.usageMock;')
   .replace('import { exec, notify, props, readTextFile, theme } from "herdr";', 'const { exec, notify, props, readTextFile, theme } = globalThis.usageMock;')
   .replace('"./logic.mjs"', JSON.stringify(new URL("./logic.mjs", import.meta.url).href));
@@ -96,4 +96,17 @@ await settle();
 assert.deepEqual(calls[5], ["cat", [], { on: null }]);
 // Fractional percents (mistral, muse, opendesign) show whole.
 assert.deepEqual(busiest([{ id: "mistral", state: "ok", windows: [{ label: "Vibe Code", usedPercent: 35.454188 }] }]), { id: "mistral", percent: 35 });
+// Pinned providers: the named window, else the busiest; null when missing or not ok; order as listed.
+const ps = [
+  { id: "claude", state: "ok", windows: [{ id: "weekly-all", label: "Weekly (all)", usedPercent: 9 }, { id: "weekly-fable", usedPercent: 50 }] },
+  { id: "opencode", state: "ok", windows: [{ id: "rolling", usedPercent: 70 }, { id: "monthly", label: "Monthly", usedPercent: 14.4 }] },
+  { id: "kimi", state: "auth-needed" },
+];
+assert.deepEqual(pinned(ps, [{ id: "opencode", window: "monthly", icon: "icons/kuota/opencode.png" }, { id: "claude", window: "weekly-all" }, { id: "kimi" }, { id: "claude" }, { nope: 1 }]), [
+  { id: "opencode", icon: "icons/kuota/opencode.png", percent: 14, label: "Monthly" },
+  { id: "claude", icon: null, percent: 9, label: "Weekly (all)" },
+  { id: "kimi", icon: null, percent: null, label: "" },
+  { id: "claude", icon: null, percent: 50, label: "weekly-fable" },
+]);
+assert.deepEqual(pinned(ps, null), []);
 console.log("usage logic and polling ok");

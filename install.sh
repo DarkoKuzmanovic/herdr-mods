@@ -14,6 +14,8 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP="${HERDR_APP_CONFIG:-$HOME/.config/herdr-app}"
 BIN="${BIN_DIR:-$HOME/.local/bin}"
 MODS_ONLY=0 WATCH=0
+# Every mod in the checkout (<name>/mods/<name>/), so a new mod needs no list edits.
+MODS="$(cd "$REPO" && for d in */mods/*/; do n="${d%%/*}"; [ "$d" = "$n/mods/$n/" ] && printf '%s ' "$n"; done)"
 for a in "$@"; do
   case "$a" in
     --mods-only) MODS_ONLY=1 ;;
@@ -46,7 +48,7 @@ link() {
 # changes, and an edit behind a symlink never reaches that folder. A marker file tells our copies apart.
 copy_mods() {
   local m dst
-  for m in agents-ids spaces-plus sysstat sessions usage md-open copy-on-select handovers prompts; do
+  for m in $MODS; do
     dst="$APP/mods/$m"
     if [ -L "$dst" ]; then rm "$dst"; elif [ -e "$dst" ] && [ ! -e "$dst/.herdr-mods" ]; then aside "$dst"; fi
     mkdir -p "$dst"
@@ -89,7 +91,7 @@ fi
 
 echo "Mods -> $APP/mods"
 copy_mods
-command -v herdr-app >/dev/null && for m in agents-ids spaces-plus sysstat sessions usage md-open copy-on-select handovers prompts; do herdr-app check "$APP/mods/$m" | tail -1; done
+command -v herdr-app >/dev/null && for m in $MODS; do herdr-app check "$APP/mods/$m" | tail -1; done
 if [ ! -e "$APP/layouts/main-plus.json" ]; then
   mkdir -p "$APP/layouts" && cp "$REPO/layout/main-plus.json" "$APP/layouts/"
   echo "  layout main-plus added: herdr-app do layout.switch '{\"name\":\"main-plus\"}'"

@@ -1,13 +1,14 @@
-import { View, div, svg } from "gpui-kit";
+import { View, div, image, svg } from "gpui-kit";
 import { h_flex, v_flex, HoverCard } from "gpui-base";
 import { exec, notify, props, readTextFile, theme } from "herdr";
-import { parse, busiest, card, level, warnings } from "./logic.mjs";
+import { parse, busiest, card, level, pinned, warnings } from "./logic.mjs";
 
 export default class Usage extends View {
   init(_props, cx) {
     const config = props() || {};
     this.command = Array.isArray(config.command) && config.command.length && config.command.every((s) => typeof s === "string") && config.command[0] ? config.command : null;
     this.on = typeof config.on === "string" && config.on ? config.on : null;
+    this.show = Array.isArray(config.show) && config.show.length ? config.show : null;
     // Herdr calls this computer null, so `on` naming it would fail; a layout synced between machines needs that.
     this.local = readTextFile("/etc/hostname").then((h) => h?.trim() || null, () => null);
     this.providers = null;
@@ -49,8 +50,13 @@ export default class Usage extends View {
     return h_flex().id("usage").size_full().bg(t.chrome).border_t(1).border_color(t.border).items_center().text_size(11.8)
       .when(Boolean(this.command), (el) => el.px(14).child(HoverCard.new("usage-card").open_delay(250).anchor("bottom_center")
         .trigger(h_flex().id("usage-trigger").h_full().gap(6).items_center().cursor_pointer().on_click((_e, cx) => { this.refresh(cx); cx.notify(); })
-          .child(svg("mods/usage/gauge.svg").size(13).flex_none().text_color(t.muted))
-          .child(div().text_color(best?.percent >= 90 ? t.blocked : t.muted).child(best ? `${best.id} ${best.percent}%` : "usage —"))
+          .when(!this.show, (el) => el
+            .child(svg("mods/usage/gauge.svg").size(13).flex_none().text_color(t.muted))
+            .child(div().text_color(best?.percent >= 90 ? t.blocked : t.muted).child(best ? `${best.id} ${best.percent}%` : "usage —")))
+          // Pinned providers: icon (else the name) and percent, muted until 60%, then yellow and red.
+          .when(Boolean(this.show), (el) => el.gap(12).children(pinned(this.providers || [], this.show).map((s) => h_flex().gap(5).items_center()
+            .child(s.icon ? image(s.icon).w(14).h(14).flex_none() : div().text_color(t.dim).child(s.id))
+            .child(div().text_color(s.percent == null ? t.dim : s.percent >= 60 ? t[level(s.percent)] : t.muted).child(s.percent == null ? "—" : `${s.percent}%`)))))
           .when(Boolean(this.error), (el) => el.child(div().text_color(t.dim).child("!"))))
         .content(this.card(t))));
   }

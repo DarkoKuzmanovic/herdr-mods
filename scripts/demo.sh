@@ -159,7 +159,7 @@ PY
   # Demo stays isolated: copy this checkout directly, never run the installer.
   mkdir -p "$HERDR_APP_HOME/mods" "$HERDR_APP_HOME/layouts"
   local m
-  for m in agents-ids spaces-plus sysstat sessions usage md-open copy-on-select handovers prompts; do
+  for m in $(cd "$REPO" && ls -d */mods/* | cut -d/ -f1); do
     mkdir -p "$HERDR_APP_HOME/mods/$m"
     rsync -a --delete "$REPO/$m/mods/$m/" "$HERDR_APP_HOME/mods/$m/"
   done

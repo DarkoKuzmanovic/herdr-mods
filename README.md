@@ -120,7 +120,7 @@ To remove a hook, delete its line or file from the places above.
 
 ```sh
 ./install.sh --watch    # copy mods into herdr-app, then re-copy on every save
-for m in agents-ids spaces-plus sysstat sessions usage md-open copy-on-select handovers prompts; do node $m/mods/$m/test_logic.mjs && herdr-app check $m/mods/$m; done
+for m in $(ls -d */mods/* | cut -d/ -f1); do node $m/mods/$m/test_logic.mjs && herdr-app check $m/mods/$m; done
 python3 -I tests/test_label.py && python3 -I tests/test_hermes_plugin.py && python3 -I tests/test_sessions_search.py && node tests/test_pi.mjs
 scripts/demo.sh start   # screenshots from a demo window with its own herdr-core; then `shot`, `stop`
 ```

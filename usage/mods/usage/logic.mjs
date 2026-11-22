@@ -17,6 +17,18 @@ export function busiest(providers) {
   return best;
 }
 
+// The status-bar items when the layout pins providers: `show` is [{ id, window, icon }] in bar order;
+// each gets that window's percent (or the busiest window's without `window`), null while it has none.
+export function pinned(providers, show) {
+  if (!Array.isArray(show)) return [];
+  return show.filter((s) => s && typeof s.id === "string" && s.id).map((s) => {
+    const p = providers.find((x) => x.id === s.id && x.state === "ok");
+    const ws = p ? windows(p) : [];
+    const w = typeof s.window === "string" && s.window ? ws.find((x) => x.id === s.window || x.label === s.window) : ws.reduce((a, x) => (!a || x.usedPercent > a.usedPercent ? x : a), null);
+    return { id: s.id, icon: typeof s.icon === "string" && s.icon ? s.icon : null, percent: w ? w.usedPercent : null, label: w ? w.label || w.id || "" : "" };
+  });
+}
+
 export function resetIn(date, now = Date.now()) {
   const time = Date.parse(date);
   if (!Number.isFinite(time)) return null;
