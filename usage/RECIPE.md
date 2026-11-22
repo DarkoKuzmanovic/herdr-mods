@@ -32,7 +32,9 @@ is unchanged. Icons are paths under herdr-app's folder; `icons/<dir>/` loads (ot
          { "id": "codex", "window": "primary", "icon": "icons/kuota/codex.png" }]
 ```
 
-Give the block room: about 60px per provider.
+Give the block room: about 60px per provider. A toggle in the hover card picks **All** or **Busiest**
+(only the provider with the highest percent); the choice is the shared value `usage.bar`, and the block
+resizes itself to fit (`layout.resize` on the block id `usage`, or the `block` prop).
 
 Use the absolute path to your own Kuota collector. Without flags it leaves out the browser-session
 providers (mistral, muse, opendesign); add `"--enabled-providers=claude,codex,mistral"` (your own list)

@@ -37,7 +37,7 @@ assert.equal(busiest(parse('{"providers":[{"id":"x","state":"ok","windows":[{"us
 const source = (await readFile(new URL("./main.js", import.meta.url), "utf8"))
   .replace('import { View, div, image, svg } from "gpui-kit";', 'const { View, div, image, svg } = globalThis.usageMock;')
   .replace('import { h_flex, v_flex, HoverCard } from "gpui-base";', 'const { h_flex, v_flex, HoverCard } = globalThis.usageMock;')
-  .replace('import { exec, notify, props, readTextFile, theme } from "herdr";', 'const { exec, notify, props, readTextFile, theme } = globalThis.usageMock;')
+  .replace('import { checking, exec, notify, props, readTextFile, run, setShared, shared, theme } from "herdr";', 'const { checking, exec, notify, props, readTextFile, run, setShared, shared, theme } = globalThis.usageMock;')
   .replace('"./logic.mjs"', JSON.stringify(new URL("./logic.mjs", import.meta.url).href));
 let config = { command: ["cat", "fixture"], on: "workstation", every: 5 }, resolve, reject, calls = [], pending, interval, tick;
 const toasts = [], store = new Map();
