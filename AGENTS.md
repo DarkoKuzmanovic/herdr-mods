@@ -88,8 +88,8 @@ on herdr.dev (a layout package would need its own copies of the mods); it lives 
 Run all of these before every commit; all must pass:
 
 ```sh
-for m in agents-ids spaces-plus sysstat sessions usage md-open copy-on-select handovers prompts; do node $m/mods/$m/test_logic.mjs && herdr-app check $m/mods/$m; done
-python3 -I tests/test_label.py && python3 -I tests/test_hermes_plugin.py && python3 -I tests/test_sessions_search.py && python3 -I tests/test_session_names.py && python3 -I tests/test_procs.py && python3 -I tests/test_handovers.py && node tests/test_pi.mjs
+for m in $(ls -d */mods/* | cut -d/ -f1); do node $m/mods/$m/test_logic.mjs && herdr-app check $m/mods/$m; done
+python3 -I tests/test_label.py && python3 -I tests/test_hermes_plugin.py && python3 -I tests/test_sessions_search.py && python3 -I tests/test_session_names.py && python3 -I tests/test_procs.py && python3 -I tests/test_handovers.py && python3 -I sessions/mods/sessions/test_search.py && node tests/test_pi.mjs
 shellcheck -S warning install.sh scripts/demo.sh
 ```
 
