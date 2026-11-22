@@ -29,6 +29,13 @@ at}`, `project` `""` for global. Read when the panel opens; written with `writeT
 expected)` against the last read, so a save from another window is never overwritten (the panel says
 so and reloads). Not `localStorage`: an overlay window's storage file is named by a hash.
 
+**One list for several computers:** put a machine's name in `data/prompts.on` (e.g. `echo box >
+~/.config/herdr-app/data/prompts.on` on a laptop that works on `box`'s terminals). The panel then reads
+and saves `box`'s `prompts.json` through `exec("python3", …, { on: "box" })`: a small helper that
+writes only over the text the panel last read, under a lock. Projects are named as `box` sees them
+(`box`'s terminals by bare path, this computer's as `<its name>:<path>`), so a prompt saved on either
+computer shows on both. When `box` is unreachable the panel says so and saves nothing.
+
 Mod files: `mods/prompts/main.js`, `mod.json`, `logic.mjs` (pure: parse, filter, save, remove),
 `test_logic.mjs`. Verify with `node prompts/mods/prompts/test_logic.mjs` and
 `herdr-app check prompts/mods/prompts`.

@@ -12,6 +12,9 @@ a version (see [AGENTS.md](AGENTS.md#releases)).
 
 - **agents-ids:** Resume and session names for Huginn workers (`agent.app=huginn`, a PiG harness with its own home):
   Resume runs `huginn --session <id>` in the session's folder.
+- **prompts:** one list for several computers: name a machine in `data/prompts.on` and the panel reads and
+  saves that machine's prompts, with projects named the same from both, so a prompt saved on the laptop
+  shows on the desktop and back.
 
 ## [0.14.0] - 2026-11-18
 

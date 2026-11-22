@@ -1,16 +1,35 @@
 import { View, div, svg } from "gpui-kit";
 import { h_flex, v_flex, Textarea, TextareaState } from "gpui-base";
 import { appHome, closeOverlay, exec, focused, props, readTextFile, run, theme, writeTextFile } from "herdr";
-import { parsePrompts, projectKey, projectName, remove, save, visible } from "./logic.mjs";
+import { keyMachine, parsePrompts, projectKey, projectName, remove, save, visible } from "./logic.mjs";
 
 // A plain file, not localStorage: an overlay window's storage file is named by a hash herdr-app may change.
 const FILE = () => `${appHome()}/data/prompts.json`;
+// Holds a machine name to keep the prompts on that machine instead (one list for every computer).
+const ON_FILE = () => `${appHome()}/data/prompts.on`;
+// Reads or writes prompts.json on the `on` machine; a write lands only over the expected text (exit 4).
+// shortcut: the whole list travels as one argument (Linux caps it at 128 KB, ~200 long prompts); send edits instead if it grows.
+const REMOTE = `
+import fcntl, os, sys, tempfile
+d = os.path.join(os.path.expanduser(os.environ.get("HERDR_APP_HOME", "~/.config/herdr-app")), "data")
+p = os.path.join(d, "prompts.json")
+os.makedirs(d, exist_ok=True)
+with open(p + ".lock", "w") as lock:
+    fcntl.flock(lock, fcntl.LOCK_EX)
+    try: cur = open(p, encoding="utf-8").read()
+    except FileNotFoundError: cur = None
+    if sys.argv[1] == "read":
+        sys.stdout.write(cur or ""); sys.exit(0 if cur is not None else 3)
+    if cur != (sys.argv[3] if len(sys.argv) > 3 else None): sys.exit(4)
+    fd, tmp = tempfile.mkstemp(dir=d)
+    with os.fdopen(fd, "w", encoding="utf-8") as f: f.write(sys.argv[2])
+    os.replace(tmp, p)
+`;
 
 export default class Prompts extends View {
   init(_props, cx) {
     this.prompts = [];
     this.error = "";
-    this.load(cx);
     this.project = "";
     this.editing = null;
     this.confirm = null;
@@ -23,23 +42,38 @@ export default class Prompts extends View {
     const f = focused();
     this.pane = f?.pane ?? null;
     this.terminal = f?.shown ?? f?.terminal ?? null;
-    if (!this.terminal || !f?.cwd) return;
-    const at = this.terminal.lastIndexOf("/");
-    const machine = at < 0 ? null : this.terminal.slice(0, at);
-    this.project = projectKey(machine, f.cwd);
     cx.spawn(async (cx) => {
+      this.on = (await readTextFile(ON_FILE()).catch(() => null))?.trim() || null;
+      const self = this.on ? (await exec("uname", ["-n"]).catch(() => null))?.stdout.trim() || null : null;
+      this.load(cx);
+      if (!this.terminal || !f?.cwd) return;
+      const at = this.terminal.lastIndexOf("/");
+      const machine = at < 0 ? null : this.terminal.slice(0, at);
+      const key = keyMachine(machine, this.on, self);
+      this.project = projectKey(key, f.cwd);
+      cx.notify();
       const r = await exec("git", ["-C", f.cwd, "rev-parse", "--show-toplevel"], { on: machine }).catch(() => null);
-      if (r?.code === 0 && r.stdout.trim()) this.project = projectKey(machine, r.stdout.trim());
+      if (r?.code === 0 && r.stdout.trim()) this.project = projectKey(key, r.stdout.trim());
       cx.notify();
     });
   }
 
   load(cx) {
     cx.spawn(async (cx) => {
-      this.raw = await readTextFile(FILE()).catch(() => null);
+      if (this.on) {
+        const r = await exec("python3", ["-c", REMOTE, "read"], { on: this.on }).catch(() => null);
+        this.raw = r?.code === 0 ? r.stdout : null;
+        this.error = r && r.code <= 3 ? "" : `Can't reach ${this.on}: showing no prompts.`;
+      } else this.raw = await readTextFile(FILE()).catch(() => null);
       this.prompts = parsePrompts(this.raw);
       cx.notify();
     });
+  }
+
+  async put(text) {
+    if (!this.on) return writeTextFile(FILE(), text, this.raw ?? null);
+    const r = await exec("python3", ["-c", REMOTE, "write", text, ...(this.raw == null ? [] : [this.raw])], { on: this.on }).catch(() => null);
+    if (r?.code !== 0) throw new Error(r?.code === 4 ? "changed" : "unreachable");
   }
 
   // Writes only over the file as last read, so another window's save is never overwritten.
@@ -49,8 +83,11 @@ export default class Prompts extends View {
     const before = this.pending;
     this.pending = new Promise((done) => cx.spawn(async (cx) => {
       await before;
-      try { await writeTextFile(FILE(), text, this.raw ?? null); this.raw = text; this.error = ""; }
-      catch { this.error = "Not saved: the prompts changed elsewhere. Reloaded; try again."; this.load(cx); }
+      try { await this.put(text); this.raw = text; this.error = ""; }
+      catch (e) {
+        this.error = e?.message === "unreachable" ? `Not saved: can't reach ${this.on}.` : "Not saved: the prompts changed elsewhere. Reloaded; try again.";
+        this.load(cx);
+      }
       done();
       cx.notify();
     }));

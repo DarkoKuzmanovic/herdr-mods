@@ -4,6 +4,10 @@
 /** The project a terminal is in: its git root (else its folder), with the machine for another one's. */
 export const projectKey = (machine, root) => (root ? (machine ? `${machine}:${root}` : root) : "");
 
+/** The machine to key a terminal's project by when the prompts live on `on` (null: this computer):
+ *  none for `on`'s own terminals, this computer's name (`self`) for local ones, so both machines agree. */
+export const keyMachine = (machine, on, self) => (machine === on ? null : machine ?? self);
+
 /** The project's short name for headings. */
 export const projectName = (key) => String(key).split("/").filter(Boolean).pop() ?? "";
 

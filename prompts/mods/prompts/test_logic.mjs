@@ -1,9 +1,14 @@
 import assert from "node:assert/strict";
-import { parsePrompts, projectKey, projectName, remove, save, visible } from "./logic.mjs";
+import { keyMachine, parsePrompts, projectKey, projectName, remove, save, visible } from "./logic.mjs";
 
 assert.equal(projectKey(null, "/home/alex/acme"), "/home/alex/acme");
 assert.equal(projectKey("box", "/home/alex/acme"), "box:/home/alex/acme");
 assert.equal(projectKey(null, ""), "");
+assert.equal(keyMachine(null, null, "lap"), null);
+assert.equal(keyMachine("box", null, "lap"), "box");
+assert.equal(keyMachine("box", "box", "lap"), null);
+assert.equal(keyMachine(null, "box", "lap"), "lap");
+assert.equal(keyMachine("other", "box", "lap"), "other");
 assert.equal(projectName("box:/home/alex/acme"), "acme");
 
 assert.deepEqual(parsePrompts("not json"), []);
