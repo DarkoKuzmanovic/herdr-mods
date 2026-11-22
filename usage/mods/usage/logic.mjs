@@ -6,7 +6,8 @@ export function parse(text) {
   return data.providers.filter((p) => p && typeof p.id === "string" && typeof p.state === "string");
 }
 
-const windows = (p) => Array.isArray(p.windows) ? p.windows.filter((w) => w && typeof w.usedPercent === "number" && Number.isFinite(w.usedPercent) && w.usedPercent >= 0 && w.usedPercent <= 100) : [];
+// Whole percents: some providers (mistral, muse, opendesign) report fractions like 35.454188.
+const windows = (p) => Array.isArray(p.windows) ? p.windows.filter((w) => w && typeof w.usedPercent === "number" && Number.isFinite(w.usedPercent) && w.usedPercent >= 0 && w.usedPercent <= 100).map((w) => ({ ...w, usedPercent: Math.round(w.usedPercent) })) : [];
 
 export function busiest(providers) {
   let best = null;

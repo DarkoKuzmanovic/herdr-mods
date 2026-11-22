@@ -94,4 +94,6 @@ config = { command: ["cat"], on: "here" };
 new Usage().init(undefined, cx);
 await settle();
 assert.deepEqual(calls[5], ["cat", [], { on: null }]);
+// Fractional percents (mistral, muse, opendesign) show whole.
+assert.deepEqual(busiest([{ id: "mistral", state: "ok", windows: [{ label: "Vibe Code", usedPercent: 35.454188 }] }]), { id: "mistral", percent: 35 });
 console.log("usage logic and polling ok");

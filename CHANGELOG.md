@@ -16,6 +16,11 @@ a version (see [AGENTS.md](AGENTS.md#releases)).
   saves that machine's prompts, with projects named the same from both, so a prompt saved on the laptop
   shows on the desktop and back.
 
+### Fixed
+
+- **usage:** fractional percents (mistral, muse, opendesign report `35.454188`) show whole; the RECIPE
+  says how to add those providers (`--enabled-providers=…` in the command).
+
 ## [0.14.0] - 2026-11-18
 
 ### Added
