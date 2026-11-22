@@ -16,6 +16,13 @@ a version (see [AGENTS.md](AGENTS.md#releases)).
   saves that machine's prompts, with projects named the same from both, so a prompt saved on the laptop
   shows on the desktop and back.
 
+### Changed
+
+- **prompts:** redesigned panel: a search box (text and project name), scope tabs with counts
+  (project, Global, All), the list under project headings (this project, Global, then the others), rows
+  of two lines with Insert, edit and delete icons, the editor folded behind + / Ctrl+N, and ↑ ↓ Enter
+  to pick and insert from the keyboard.
+
 ### Fixed
 
 - **usage:** fractional percents (mistral, muse, opendesign report `35.454188`) show whole; the RECIPE

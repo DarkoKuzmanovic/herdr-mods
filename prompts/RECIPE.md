@@ -7,22 +7,29 @@ that terminal.
 ![The Prompts panel](preview.png)
 
 **Panel (`mod.open:prompts`, a 520×620 `window` overlay, e.g. `ctrl-shift-i` in `keys.json`):** a
-`Prompts` heading with `<project> + global` (or `global`) and an X; Esc closes it too. Then a textarea
-(3 to 10 rows) and two buttons: **Save to `<project>`** (primary; only when there is a project) and
-**Save global**; Ctrl+Enter in the textarea saves to the project, or global without one. Then one card
-per prompt, this project's first, then the global ones, newest first in each: the text (cut at 600
-characters), its scope in `dim`, and three buttons:
+`Prompts` heading with a + (new prompt, Ctrl+N) and an X (Esc). Under it:
 
-- **Insert**: closes the panel, focuses the pane it was opened over, puts the prompt on the clipboard and
-  runs `terminal.paste`. It is pasted, never sent: no Enter, so you can still change it. Only shown when
-  a terminal was focused.
-- **Edit**: loads the prompt into the textarea, its card outlined in `accent`; either Save button
-  replaces it (and moves it to that scope). **Cancel edit** appears beside them.
-- **Delete**: the first click turns it into **Delete?**, the second deletes.
+- **Search** (focused on open, search icon inside a bordered box): filters as you type, on the text and
+  the project name, any case.
+- **Scope tabs** with counts: `<project>` (only when there is one), `Global`, `All` (the default).
+- **Editor**, folded away until + or Ctrl+N (or a row's pencil) opens it, outlined in `accent`: a
+  textarea (3 to 8 rows), **Save to `<project>`** (primary; only with a project), **Save global**
+  (Ctrl+Enter saves to the project, or global without one) and **Cancel** (Esc closes the editor
+  first, then the panel). Saving a prompt you edit replaces it, and moves it to that scope.
+- **The list**, under headings with a rule and a count: this project (in `accent`), `GLOBAL`, then
+  other projects by their newest prompt; newest first in each. Each row: the text at most two lines
+  (the full text in a tooltip when longer), **Insert**, a pencil (edit) and an X (delete: the first
+  click turns it into a red **Delete?**, the second deletes). The picked row (↑/↓, or a click) has a
+  border and an orange Insert.
+- A footer with the keys: ↑ ↓ select · Enter insert · Ctrl+N new · Esc close.
+
+**Insert** (the button, or Enter in the search) closes the panel, focuses the pane it was opened over,
+puts the prompt on the clipboard and runs `terminal.paste`. It is pasted, never sent: no Enter, so you
+can still change it. Only shown when a terminal was focused.
 
 **Project:** the git root of the focused terminal's folder (`git -C <cwd> rev-parse --show-toplevel`,
 run on that terminal's machine), else the folder itself; for another machine's terminal it is
-`<machine>:<path>`. Prompts saved elsewhere stay out of the list.
+`<machine>:<path>`.
 
 **Storage:** `~/.config/herdr-app/data/prompts.json` (under `appHome()`), an array of `{id, text, project,
 at}`, `project` `""` for global. Read when the panel opens; written with `writeTextFile(path, text,
