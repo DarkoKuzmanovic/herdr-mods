@@ -152,6 +152,7 @@ label or removed feature bumps MAJOR.
 
 - Work on `main` for small changes; for anything bigger use a branch in a worktree at
   `.worktrees/<branch>/` (ignored by git).
+- If your session starts in a linked worktree that a tool or person made for you, work there: don't create another one, and don't move, rename or remove a worktree or branch you didn't create.
 - Commit messages: one line saying what changed for a user, e.g.
   `spaces-plus: PR badge per branch via gh`.
 - Never force-push `main` or `upstream`, and never rewrite a pushed tag.
